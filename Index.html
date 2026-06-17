@@ -422,7 +422,7 @@
       h+='<div class="prose" id="prose-'+card.id+'"></div>';
       h+='<div class="card-actions pending" id="act-'+card.id+'"><button class="btn" onclick="prosegui('+card.id+')">Prosegui</button></div>';
     } else {
-      h+='<div class="prose">'+card.testo+'</div>';
+      h+='<div class="prose">'+pulisciHTML(card.testo)+'</div>';
     }
     return h;
   }
@@ -477,30 +477,6 @@
 
     function reveal(){ if(actions){ actions.classList.remove('pending'); actions.classList.add('reveal'); } }
 
-    // Pulisce il testo dai tag Google Docs (span con font-size, font-family, color inline)
-    // preservando grassetto, corsivo, sottolineato, p, h4, ul, ol
-    function pulisciHTML(html){
-      var tmp=document.createElement('div');
-      tmp.innerHTML=html;
-      // rimuove attributi style e class da tutti i tag tranne quelli strutturali
-      tmp.querySelectorAll('*').forEach(function(el){
-        var tag=el.tagName.toLowerCase();
-        if(['b','strong','i','em','u','h4','ul','ol','li','p','br','a','div'].indexOf(tag)===-1){
-          // sostituisce span con il suo contenuto
-          if(tag==='span'){
-            var frag=document.createDocumentFragment();
-            while(el.firstChild) frag.appendChild(el.firstChild);
-            el.parentNode.replaceChild(frag,el);
-          }
-        } else {
-          el.removeAttribute('style');
-          el.removeAttribute('class');
-          el.removeAttribute('id');
-        }
-      });
-      return tmp.innerHTML;
-    }
-
     // Renderizza l'HTML pulito
     host.innerHTML=pulisciHTML(card.testo);
 
@@ -519,7 +495,9 @@
           if(!part) return;
           if(/^\s+$/.test(part)){ frag.appendChild(document.createTextNode(part)); return; }
           var sp=document.createElement('span');
-          sp.className='w'; sp.style.opacity='0'; sp.textContent=part;
+          sp.style.opacity='0';
+          sp.style.transition='opacity .26s ease';
+          sp.textContent=part;
           wordSpans.push(sp); frag.appendChild(sp);
         });
         node.parentNode.replaceChild(frag,node);
@@ -532,12 +510,12 @@
     var i=0, timer=null;
     function finishAll(){
       if(timer) clearTimeout(timer);
-      wordSpans.forEach(function(s){ s.style.opacity='1'; s.style.animation='none'; });
+      wordSpans.forEach(function(s){ s.style.opacity='1'; });
       host.onclick=null; reveal();
     }
     function step(){
       if(i>=wordSpans.length){ finishAll(); return; }
-      wordSpans[i].style.animation='fadeWord .26s ease forwards';
+      wordSpans[i].style.opacity='1';
       i++; timer=setTimeout(step,VELOCITA_TESTO);
     }
     host.onclick=finishAll;   // clic per saltare l'animazione
@@ -669,6 +647,33 @@
   function driveUrl(url){ if(!url) return ''; var id='', m=url.match(/\/file\/d\/([^/?]+)/); if(m) id=m[1]; if(!id){ var m2=url.match(/[?&]id=([^&]+)/); if(m2) id=m2[1]; } if(!id) return url; return 'https://drive.google.com/thumbnail?id='+id+'&sz=w1400'; }
   function checkSvg(s){ s=s||11; return '<svg width="'+s+'" height="'+s+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>'; }
   function esc(s){ if(s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+  /* Pulisce l'HTML salvato dall'editor (stili Google Docs) PRESERVANDO grassetto/corsivo/sottolineato */
+  function pulisciHTML(html){
+    var tmp=document.createElement('div');
+    tmp.innerHTML=html;
+    Array.prototype.slice.call(tmp.querySelectorAll('span,font,div,p,b,i,u,strong,em')).forEach(function(el){
+      var st=el.getAttribute('style')||'';
+      var bold   = /font-weight\s*:\s*(bold|[6789]00)/i.test(st);
+      var italic = /font-style\s*:\s*italic/i.test(st);
+      var under  = /text-decoration[^;]*underline/i.test(st);
+      function wrap(tag){ var w=document.createElement(tag); while(el.firstChild) w.appendChild(el.firstChild); el.appendChild(w); }
+      if(bold)   wrap('strong');
+      if(italic) wrap('em');
+      if(under)  wrap('u');
+    });
+    Array.prototype.slice.call(tmp.querySelectorAll('*')).forEach(function(el){
+      var tag=el.tagName.toLowerCase();
+      if(tag==='span'||tag==='font'){
+        var frag=document.createDocumentFragment();
+        while(el.firstChild) frag.appendChild(el.firstChild);
+        el.parentNode.replaceChild(frag,el);
+      } else {
+        el.removeAttribute('style'); el.removeAttribute('class'); el.removeAttribute('id');
+      }
+    });
+    return tmp.innerHTML;
+  }
   function apriAlert(m){ document.getElementById('alert-text').innerText=m; document.getElementById('alert').classList.remove('hidden'); }
   function chiudiAlert(){ document.getElementById('alert').classList.add('hidden'); }
   </script>
