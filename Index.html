@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <!-- ░░ FONT: per cambiarli, sostituisci i nomi qui sotto e nelle variabili --font-* ░░ -->
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Quicksand:wght@500;600;700&family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400&display=swap" rel="stylesheet">
 
   <style>
     /* ╔══════════════════════════════════════════════════════════════╗
@@ -17,16 +17,15 @@
        ╚══════════════════════════════════════════════════════════════╝
        • --font-display  = font dei TITOLI
        • --font-body     = font del TESTO da leggere e dell'interfaccia
-       • --size-*        = dimensioni (in "rem": 1rem ≈ 16px. 1.1rem ≈ 17-18px)
-       Per usare un altro font di Google Fonts: cambia il link <link ...> qui
-       sopra inserendo il nome del font, poi scrivi lo stesso nome qui sotto.   */
+       • --size-*        = dimensioni (in "rem": 1rem ≈ 16px. 1.1rem ≈ 17-18px)   */
     :root{
-      --font-display:'Quicksand', 'Nunito', system-ui, sans-serif;
-      --font-body:'Nunito', system-ui, -apple-system, sans-serif;
+      --font-display:'Quicksand', 'Roboto', system-ui, sans-serif;
+      --font-body:'Roboto', system-ui, -apple-system, sans-serif;
+      --weight-body:300;       /* spessore del testo da leggere (300 = light) */
 
       --size-title:1.4rem;     /* titolo della card            */
-      --size-body:1.1rem;      /* testo della narrazione       */
-      --size-question:1.1rem;  /* testo delle domande          */
+      --size-body:1.08rem;     /* testo della narrazione       */
+      --size-question:1.08rem; /* testo delle domande          */
       --size-option:1rem;      /* risposte del quiz            */
 
       /* ── Colori (puoi cambiarli, ma non è necessario) ── */
@@ -51,7 +50,7 @@
     *{ box-sizing:border-box; }
     html,body{ height:100%; }
     body{
-      margin:0; font-family:var(--font-body);
+      margin:0; font-family:var(--font-body); font-weight:var(--weight-body);
       background:var(--paper); color:var(--ink);
       -webkit-font-smoothing:antialiased;
     }
@@ -126,8 +125,8 @@
 
     /* Card */
     .card{ background:var(--surface); border:1px solid var(--hair); border-radius:var(--radius); box-shadow:var(--shadow); padding:30px 32px; margin-bottom:22px; }
-    .card.enter{ animation:rise .5s cubic-bezier(.2,.7,.25,1) both; }
-    @keyframes rise{ from{ opacity:0; transform:translateY(18px); } to{ opacity:1; transform:translateY(0); } }
+    .card.enter{ animation:rise .55s cubic-bezier(.16,.84,.28,1) both; }
+    @keyframes rise{ from{ opacity:0; transform:translateY(34px) scale(.985); } to{ opacity:1; transform:translateY(0) scale(1); } }
     .card .kind{ font-size:.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--accent); margin:0 0 10px; }
     .card h3{ font-family:var(--font-display); font-weight:700; letter-spacing:-.01em; font-size:var(--size-title); line-height:1.25; margin:0 0 18px; }
 
@@ -138,7 +137,7 @@
       color:var(--muted); font-size:.82rem; }
     .fig.fallback span{ padding:6px 12px; border:1px solid var(--hair); border-radius:99px; background:rgba(255,255,255,.6); }
 
-    .prose p{ font-size:var(--size-body); line-height:1.78; color:var(--ink-soft); margin:0 0 1.05em; }
+    .prose p{ font-size:var(--size-body); font-weight:var(--weight-body); line-height:1.78; color:var(--ink-soft); margin:0 0 1.05em; }
     .prose p:last-child{ margin-bottom:0; }
 
     /* parola che appare (effetto scrittura) */
@@ -197,8 +196,16 @@
       #app.show{ grid-template-columns:1fr; }
       .rail{ display:none; }
       .reader{ height:auto; }
-      .reader-inner{ padding:22px 18px 100px; }
-      .card{ padding:24px 20px; }
+      .reader-inner{ padding:16px 14px 90px; }
+      .card{ padding:20px 16px; border-radius:14px; }
+      :root{ --size-title:1.22rem; --size-body:1.04rem; --size-question:1.04rem; }
+      .topbar{ padding:10px 0 14px; }
+      .auth-card{ padding:32px 22px; }
+      .fig img{ max-height:300px; }
+      .opt{ padding:15px 16px; }                 /* tap target più alto */
+      .btn{ padding:14px 24px; font-size:1rem; } /* bottoni comodi col pollice */
+      .done-email{ flex-direction:column; }
+      .done-email .btn{ width:100%; }
     }
     @media (prefers-reduced-motion:reduce){ *{ animation:none !important; transition:none !important; } }
   </style>
@@ -216,8 +223,8 @@
   <!-- INGRESSO -->
   <div id="auth">
     <div class="auth-card">
-      <p class="eyebrow">Papiro Dinamica · Modulo 1</p>
-      <h1>Come funziona un'Intelligenza Artificiale</h1>
+      <p class="eyebrow" id="auth-eyebrow">Corso</p>
+      <h1 id="auth-title">Come funziona un'Intelligenza Artificiale</h1>
       <p class="auth-sub">Un percorso a piccoli passi: leggi, rifletti, rispondi. Costruirai i concetti uno alla volta.</p>
       <div class="field"><input type="text" id="in-nome"    placeholder="Nome"></div>
       <div class="field"><input type="text" id="in-cognome" placeholder="Cognome"></div>
@@ -230,7 +237,7 @@
     <aside class="rail">
       <div class="rail-brand">
         <p class="eyebrow">Percorso</p>
-        <h2>Come funziona una IA</h2>
+        <h2 id="rail-title">Come funziona una IA</h2>
       </div>
       <nav class="steps" id="steps"></nav>
       <div class="rail-foot">
@@ -311,8 +318,16 @@
   function sDel(k){ try{ localStorage.removeItem(k); }catch(e){ delete mem[k]; } }
 
   /* ── AVVIO ── */
+  function applicaTitolo(t){
+    if(!t) return;
+    document.title=t;
+    var rt=document.getElementById('rail-title'); if(rt) rt.innerText=t;
+    var at=document.getElementById('auth-title'); if(at) at.innerText=t;
+    var ae=document.getElementById('auth-eyebrow'); if(ae) ae.innerText='Corso';
+  }
   window.onload=function(){
     if(inAppsScript()){
+      google.script.run.withSuccessHandler(applicaTitolo).withFailureHandler(function(){}).getTitoloModulo();
       google.script.run
         .withSuccessHandler(function(d){ cards=(d&&d.length)?d:FALLBACK_CARDS; checkAuth(); })
         .withFailureHandler(function(){ cards=FALLBACK_CARDS; checkAuth(); })
@@ -383,7 +398,7 @@
   function updateProgress(){
     var tot=cards.length, done=Math.min(currentIndex,tot), pct=tot?Math.round(done/tot*100):0;
     document.getElementById('bar').style.width=pct+'%';
-    document.getElementById('prog').innerText=(currentIndex>=tot)?'Completato':('Passo '+(currentIndex+1)+' di '+tot);
+    document.getElementById('prog').innerText=pct+'% completato';
   }
 
   /* ══ CARD ══ */
@@ -409,7 +424,7 @@
     }
   }
 
-  function header(card,label){ return '<p class="kind">'+label+'</p><h3>'+esc(card.titolo)+'</h3>'; }
+  function header(card,label){ return card.titolo ? '<h3>'+esc(card.titolo)+'</h3>' : ''; }
   function figure(card){
     if(!card.mediaUrl||!card.mediaUrl.trim()) return '';
     return '<div class="fig"><img src="'+driveUrl(card.mediaUrl)+'" alt="" '+
@@ -648,7 +663,17 @@
   function checkSvg(s){ s=s||11; return '<svg width="'+s+'" height="'+s+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>'; }
   function esc(s){ if(s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-  /* Pulisce l'HTML salvato dall'editor (stili Google Docs) PRESERVANDO grassetto/corsivo/sottolineato */
+  /* Pulisce l'HTML salvato dall'editor (stili Google Docs) PRESERVANDO grassetto/corsivo/sottolineato
+     e gli stili utili del riquadro (interlinea, font, allineamento) */
+  function filtraStile(st){
+    var keep=[];
+    String(st||'').split(';').forEach(function(d){
+      var i=d.indexOf(':'); if(i<0) return;
+      var prop=d.slice(0,i).trim().toLowerCase(), val=d.slice(i+1).trim();
+      if(['line-height','font-family','text-align'].indexOf(prop)!==-1 && val) keep.push(prop+':'+val);
+    });
+    return keep.join(';');
+  }
   function pulisciHTML(html){
     var tmp=document.createElement('div');
     tmp.innerHTML=html;
@@ -669,7 +694,9 @@
         while(el.firstChild) frag.appendChild(el.firstChild);
         el.parentNode.replaceChild(frag,el);
       } else {
-        el.removeAttribute('style'); el.removeAttribute('class'); el.removeAttribute('id');
+        var f=filtraStile(el.getAttribute('style'));
+        if(f) el.setAttribute('style',f); else el.removeAttribute('style');
+        el.removeAttribute('class'); el.removeAttribute('id');
       }
     });
     return tmp.innerHTML;

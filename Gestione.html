@@ -3,7 +3,7 @@
 <head>
   <base target="_top">
   <meta charset="UTF-8">
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&family=Quicksand:wght@500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
   <style>
     :root{
       --paper:#FAF8F4; --surface:#FFFFFF; --ink:#2B2B33; --ink-soft:#54545F;
@@ -37,7 +37,7 @@
     .toolbar .spacing{ margin-left:auto; display:flex; align-items:center; gap:7px; font-size:.78rem; font-weight:700; color:var(--ink-soft); }
     .toolbar .spacing select{ width:auto; padding:6px 9px; font-size:.82rem; border-radius:8px; }
     .editor{ min-height:260px; border:1.5px solid var(--hair); border-radius:0 0 11px 11px;
-      padding:18px 20px; background:#fff; font-size:1.02rem; line-height:1.6; overflow-y:auto; }
+      padding:18px 20px; background:#fff; font-family:'Roboto',sans-serif; font-weight:300; font-size:1.05rem; line-height:1.6; overflow-y:auto; }
     .editor:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
     .editor:empty:before{ content:attr(data-ph); color:#B8B6AE; pointer-events:none; }
     .editor h4{ font-family:var(--font-display); font-size:1.12rem; margin:.7em 0 .35em; color:var(--ink); }
@@ -90,9 +90,18 @@
 </head>
 <body>
   <div class="wrap">
-    <p class="eyebrow">Papiro Dinamica</p>
+    <p class="eyebrow">Editor del corso</p>
     <h1>Gestione Card</h1>
     <p class="sub">Crea una card e salvala nel foglio. L'app studente la legge subito.</p>
+
+    <div class="card-box" style="padding:18px 26px;">
+      <label style="margin-top:0;">Titolo del modulo <span class="hint">— mostrato agli studenti</span></label>
+      <div style="display:flex; gap:10px;">
+        <input type="text" id="titoloModulo" placeholder="Es: Modulo 1 — Intelligenze Artificiali" style="flex:1;">
+        <button class="btn" onclick="salvaTitolo()" style="white-space:nowrap;">Salva titolo</button>
+        <button class="btn btn-ghost" onclick="scaricaDoc()" style="white-space:nowrap;">⬇ Scarica documento</button>
+      </div>
+    </div>
 
     <div class="card-box">
       <input type="hidden" id="card-id" value="">
@@ -121,6 +130,14 @@
           <button type="button" data-cmd="createLink" title="Inserisci link">🔗 Link</button>
           <button type="button" data-cmd="removeFormat" title="Rimuovi formattazione">✕ Pulisci</button>
           <span class="spacing">
+            Font
+            <select id="font" onchange="setFont()">
+              <option value="">Predefinito (Roboto Light)</option>
+              <option value="Georgia, serif">Georgia</option>
+              <option value="'Times New Roman', serif">Times</option>
+              <option value="'Quicksand', sans-serif">Quicksand</option>
+              <option value="'Courier New', monospace">Courier</option>
+            </select>
             Interlinea
             <select id="interlinea" onchange="setInterlinea()">
               <option value="1.6">Normale</option>
@@ -218,20 +235,24 @@
     });
     function isInside(tag){ var n=window.getSelection().anchorNode; while(n){ if(n.nodeName===tag) return true; n=n.parentNode; } return false; }
     function setInterlinea(){ $('editorRich').style.lineHeight = $('interlinea').value; }
+    function setFont(){ $('editorRich').style.fontFamily = $('font').value || ''; }
 
     function richHtml(){
       var ed = $('editorRich'), h = ed.innerHTML.trim();
       if(!h || h==='<br>' || h==='<p></p>') return '';
-      return '<div style="line-height:'+$('interlinea').value+'">'+h+'</div>';
+      var style = 'line-height:'+$('interlinea').value;
+      var f = $('font').value; if(f) style += ';font-family:'+f;
+      return '<div style="'+style+'">'+h+'</div>';
     }
     function loadRich(testo){
-      var ed=$('editorRich'), sel=$('interlinea');
-      sel.value='1.6'; ed.style.lineHeight='1.6';
+      var ed=$('editorRich'), sel=$('interlinea'), fnt=$('font');
+      sel.value='1.6'; ed.style.lineHeight='1.6'; fnt.value=''; ed.style.fontFamily='';
       if(!testo){ ed.innerHTML=''; return; }
       var tmp=document.createElement('div'); tmp.innerHTML=testo;
       var first=tmp.firstElementChild;
-      if(tmp.children.length===1 && first && first.tagName==='DIV' && first.style.lineHeight){
-        sel.value=first.style.lineHeight; ed.style.lineHeight=first.style.lineHeight;
+      if(tmp.children.length===1 && first && first.tagName==='DIV' && (first.style.lineHeight||first.style.fontFamily)){
+        if(first.style.lineHeight){ sel.value=first.style.lineHeight; ed.style.lineHeight=first.style.lineHeight; }
+        if(first.style.fontFamily){ fnt.value=first.style.fontFamily.replace(/"/g,"'"); ed.style.fontFamily=first.style.fontFamily; }
         ed.innerHTML=first.innerHTML;
       } else if(/<[a-z]/i.test(testo)){
         ed.innerHTML=testo;
@@ -240,6 +261,26 @@
           return '<p>'+esc(p).replace(/\n/g,'<br>')+'</p>';
         }).join('');
       }
+    }
+
+    /* ── titolo del modulo ── */
+    function salvaTitolo(){
+      var t=$('titoloModulo').value.trim();
+      google.script.run.withSuccessHandler(function(){ toast('Titolo salvato'); }).salvaTitoloModulo(t);
+    }
+
+    /* ── scarica documento ── */
+    function scaricaDoc(){
+      toast('Genero il documento…');
+      google.script.run.withSuccessHandler(function(testo){
+        var blob=new Blob([testo],{type:'text/plain;charset=utf-8'});
+        var url=URL.createObjectURL(blob);
+        var a=document.createElement('a');
+        var nome=($('titoloModulo').value.trim()||'corso').replace(/[^\w\-]+/g,'_');
+        a.href=url; a.download=nome+'.txt';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }).esportaTestoCorso();
     }
 
     function cambiaTipo(){
@@ -353,6 +394,7 @@
 
     cambiaTipo();
     google.script.run.withSuccessHandler(mostraLista).elencaCard();
+    google.script.run.withSuccessHandler(function(t){ $('titoloModulo').value = (t && t!=='Corso IA') ? t : ''; }).getTitoloModulo();
   </script>
 </body>
 </html>

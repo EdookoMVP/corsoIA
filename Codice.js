@@ -245,6 +245,55 @@ function eliminaCard(id) {
   return elencaCard();
 }
 
+/* ── TITOLO DEL MODULO (tab "Impostazioni") ─────────── */
+function getTitoloModulo() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('Impostazioni');
+  if (!sheet) return 'Corso IA';
+  var v = sheet.getRange('B1').getValue();
+  return v ? v.toString() : 'Corso IA';
+}
+
+function salvaTitoloModulo(titolo) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('Impostazioni');
+  if (!sheet) {
+    sheet = ss.insertSheet('Impostazioni');
+    sheet.getRange('A1').setValue('Titolo del modulo').setFontWeight('bold');
+  }
+  sheet.getRange('B1').setValue(titolo || '');
+  return 'OK';
+}
+
+/* ── ESPORTA TUTTO IL CONTENUTO IN TESTO ───────────── */
+function esportaTestoCorso() {
+  var cards = getCardConfig();
+  var titolo = getTitoloModulo();
+  function pulito(html) {
+    return String(html || '')
+      .replace(/<\/(p|div|h4|li)>/gi, '\n')
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+      .replace(/\n{3,}/g, '\n\n').trim();
+  }
+  var nomi = { narrazione: 'Card', quiz: 'Domanda a risposta multipla', aperta: 'Domanda aperta', completamento: 'Completamento' };
+  var out = titolo.toUpperCase() + '\n' + '='.repeat(titolo.length) + '\n\n';
+  cards.forEach(function (c, idx) {
+    out += '── Card ' + c.id + ' · ' + (nomi[c.tipo] || c.tipo) + ' ──\n';
+    out += pulito(c.testo) + '\n';
+    if (c.mediaUrl) out += '[media: ' + c.mediaUrl + ']\n';
+    if (c.opzioni && c.opzioni.length) {
+      out += 'Opzioni: ' + c.opzioni.join(' / ') + '\n';
+      if (c.rispostaCorretta) out += 'Risposta corretta: ' + c.rispostaCorretta + '\n';
+    }
+    if (c.feedbackEsatto) out += 'Feedback (corretto): ' + pulito(c.feedbackEsatto) + '\n';
+    if (c.feedbackErrato) out += 'Feedback (errato): ' + pulito(c.feedbackErrato) + '\n';
+    out += '\n';
+  });
+  return out;
+}
+
 /* ── SALVA STUDENTE (primo accesso) ────────────────── */
 function salvaStudente(nome, email) {
   var ss    = SpreadsheetApp.getActiveSpreadsheet();
