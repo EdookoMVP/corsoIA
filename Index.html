@@ -182,7 +182,11 @@
     .done-screen{ text-align:center; padding:60px 32px; background:radial-gradient(120% 120% at 50% 0%, var(--accent-soft) 0%, transparent 60%), var(--surface); border:1px solid var(--hair); border-radius:var(--radius); box-shadow:var(--shadow); }
     .done-screen .seal{ width:58px; height:58px; border-radius:50%; margin:0 auto 18px; background:var(--accent); color:#fff; display:flex; align-items:center; justify-content:center; }
     .done-screen h3{ font-family:var(--font-display); font-weight:700; font-size:1.5rem; margin:0 0 8px; }
-    .done-screen p{ color:var(--muted); font-size:.95rem; margin:0; }
+    .done-screen p{ color:var(--muted); font-size:.95rem; margin:0 0 18px; }
+    .done-email{ display:flex; gap:10px; margin-top:6px; }
+    .done-email input{ flex:1; padding:12px 15px; font-size:.95rem; border:1.5px solid var(--hair); border-radius:13px; background:#fff; color:var(--ink); font-family:inherit; }
+    .done-email input:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+    .done-skip{ display:block; margin-top:10px; background:none; border:none; color:var(--muted); font-size:.82rem; cursor:pointer; text-decoration:underline; font-family:inherit; }
 
     #alert{ position:fixed; inset:0; z-index:50; display:flex; align-items:center; justify-content:center; background:rgba(43,43,51,.42); padding:18px; backdrop-filter:blur(2px); }
     .alert-box{ background:#fff; border-radius:20px; padding:28px 26px; max-width:360px; width:100%; text-align:center; box-shadow:0 12px 40px rgba(0,0,0,.18); }
@@ -215,9 +219,8 @@
       <p class="eyebrow">Papiro Dinamica · Modulo 1</p>
       <h1>Come funziona un'Intelligenza Artificiale</h1>
       <p class="auth-sub">Un percorso a piccoli passi: leggi, rifletti, rispondi. Costruirai i concetti uno alla volta.</p>
-      <div class="field"><input type="text"  id="in-nome"    placeholder="Nome"></div>
-      <div class="field"><input type="text"  id="in-cognome" placeholder="Cognome"></div>
-      <div class="field"><input type="email" id="in-email"   placeholder="Email"></div>
+      <div class="field"><input type="text" id="in-nome"    placeholder="Nome"></div>
+      <div class="field"><input type="text" id="in-cognome" placeholder="Cognome"></div>
       <button class="btn" onclick="startPlatform()">Inizia il percorso</button>
     </div>
   </div>
@@ -323,12 +326,11 @@
   }
 
   function startPlatform(){
-    var nome=val('in-nome'), cognome=val('in-cognome'), email=val('in-email');
+    var nome=val('in-nome'), cognome=val('in-cognome');
     if(!nome||!cognome){ apriAlert('Inserisci nome e cognome per continuare.'); return; }
-    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ apriAlert('Inserisci un indirizzo email valido.'); return; }
-    studentKey=nome+' '+cognome; studentName=studentKey; studentEmail=email;
-    sSet('papiro_student', JSON.stringify({key:studentKey,name:studentName,email:studentEmail}));
-    gas('salvaStudente', studentName, studentEmail);
+    studentKey=nome+' '+cognome; studentName=studentKey; studentEmail='';
+    sSet('papiro_student', JSON.stringify({key:studentKey,name:studentName,email:''}));
+    gas('salvaStudente', studentName, '');
     avviaCorso();
   }
 
@@ -349,7 +351,7 @@
     sDel('papiro_student');
     document.getElementById('app').classList.remove('show');
     document.getElementById('auth').classList.remove('hidden');
-    ['in-nome','in-cognome','in-email'].forEach(function(id){ document.getElementById(id).value=''; });
+    ['in-nome','in-cognome'].forEach(function(id){ document.getElementById(id).value=''; });
   }
 
   /* ══ RAIL ══ */
@@ -597,16 +599,40 @@
 
   function showDone(){
     var div=document.createElement('div'); div.className='done-screen enter';
-    div.innerHTML='<div class="seal">'+checkSvg(22)+'</div><h3>Modulo completato</h3>'+
-      '<p>Ottimo lavoro! Ora puoi proseguire con il modulo 2</p>';
+    div.innerHTML='<div class="seal">'+checkSvg(22)+'</div><h3>Modulo completato!</h3>'+
+      '<p>Ottimo lavoro. Vuoi ricevere per email un riepilogo dei contenuti e delle tue risposte?</p>'+
+      '<div class="done-email">'+
+        '<input type="email" id="email-fine" placeholder="La tua email (facoltativa)">'+
+        '<button class="btn" onclick="inviaEmail()">Invia</button>'+
+      '</div>'+
+      '<button class="done-skip" onclick="saltaEmail()">No grazie, continua senza email</button>';
     document.getElementById('cards').appendChild(div);
     setTimeout(function(){ div.scrollIntoView({behavior:'smooth',block:'center'}); },80);
+  }
 
-    // invia l'email finale una sola volta
+  function inviaEmail(){
+    var email=(document.getElementById('email-fine').value||'').trim();
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ apriAlert('Inserisci un indirizzo email valido.'); return; }
+    studentEmail=email;
+    sSet('papiro_student', JSON.stringify({key:studentKey,name:studentName,email:email}));
+    gas('salvaStudente', studentName, email);
     if(!sGet('papiro_done_'+studentKey)){
       sSet('papiro_done_'+studentKey,'1');
-      gas('inviaRisultatiFinali', studentName, studentEmail);
+      gas('inviaRisultatiFinali', studentName, email);
     }
+    mostraConfermaEmail();
+  }
+
+  function saltaEmail(){
+    if(!sGet('papiro_done_'+studentKey)) sSet('papiro_done_'+studentKey,'1');
+    mostraConfermaEmail();
+  }
+
+  function mostraConfermaEmail(){
+    var ds=document.querySelector('.done-screen');
+    if(!ds) return;
+    ds.innerHTML='<div class="seal">'+checkSvg(22)+'</div><h3>Ottimo lavoro!</h3>'+
+      '<p>Ora puoi proseguire con il modulo 2.</p>';
   }
 
   /* ══ FEEDBACK / UTILITÀ ══ */
