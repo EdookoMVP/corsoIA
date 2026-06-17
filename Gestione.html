@@ -44,6 +44,9 @@
     .editor p{ margin:0 0 .75em; }
     .editor ul, .editor ol{ margin:0 0 .75em; padding-left:1.5em; }
     .editor a{ color:var(--accent); }
+    .editor figure.cardmedia{ margin:14px 0; text-align:center; }
+    .editor figure.cardmedia img{ max-width:100%; max-height:300px; border-radius:10px; border:1px solid var(--hair); }
+    .editor figure.cardmedia .vidph{ padding:22px; background:var(--accent-soft); color:var(--accent-700); border-radius:10px; font-weight:700; font-size:.9rem; }
 
     .row{ display:flex; gap:14px; }
     .row > *{ flex:1; }
@@ -128,6 +131,8 @@
           <button type="button" data-cmd="insertOrderedList" title="Elenco numerato">1. Lista</button>
           <span class="sep"></span>
           <button type="button" data-cmd="createLink" title="Inserisci link">🔗 Link</button>
+          <button type="button" onclick="inserisciMedia('image')" title="Inserisci immagine nel punto del cursore">🖼 Immagine</button>
+          <button type="button" onclick="inserisciMedia('video')" title="Inserisci video nel punto del cursore">🎬 Video</button>
           <button type="button" data-cmd="removeFormat" title="Rimuovi formattazione">✕ Pulisci</button>
           <span class="spacing">
             Font
@@ -189,8 +194,8 @@
         <textarea id="msgAperta" style="min-height:90px;" placeholder="Grazie per la tua riflessione!"></textarea>
       </div>
 
-      <!-- MEDIA -->
-      <label>Immagine o video <span class="hint">— facoltativo</span></label>
+      <!-- MEDIA IN ALTO -->
+      <label>Media in alto <span class="hint">— facoltativo (per metterlo in mezzo al testo, usa 🖼/🎬 nella barra dell'editor)</span></label>
       <div class="seg" style="margin-bottom:10px;">
         <label><input type="radio" name="media" value="" checked onchange="toggleMedia()"><span class="chip">Nessuno</span></label>
         <label><input type="radio" name="media" value="immagine" onchange="toggleMedia()"><span class="chip">Immagine</span></label>
@@ -236,6 +241,30 @@
     function isInside(tag){ var n=window.getSelection().anchorNode; while(n){ if(n.nodeName===tag) return true; n=n.parentNode; } return false; }
     function setInterlinea(){ $('editorRich').style.lineHeight = $('interlinea').value; }
     function setFont(){ $('editorRich').style.fontFamily = $('font').value || ''; }
+
+    /* ── inserisce immagine/video nel punto del cursore ── */
+    function driveThumb(url){
+      if(!url) return '';
+      var m=url.match(/\/file\/d\/([^/?]+)/)||url.match(/[?&]id=([^&]+)/);
+      if(m) return 'https://drive.google.com/thumbnail?id='+m[1]+'&sz=w1400';
+      return url;
+    }
+    function escAttr(s){ return String(s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    function inserisciMedia(tipo){
+      var url=prompt(tipo==='video'
+        ? 'Link del video (Google Drive o YouTube):'
+        : "Link dell'immagine (Google Drive o URL diretto):");
+      if(!url) return;
+      url=url.trim(); if(!url) return;
+      $('editorRich').focus();
+      var fig;
+      if(tipo==='image'){
+        fig='<figure class="cardmedia" data-type="image" contenteditable="false"><img src="'+escAttr(driveThumb(url))+'"></figure>';
+      } else {
+        fig='<figure class="cardmedia" data-type="video" data-url="'+escAttr(url)+'" contenteditable="false"><div class="vidph">🎬 Video — apparirà qui nell\'app</div></figure>';
+      }
+      document.execCommand('insertHTML', false, fig+'<p><br></p>');
+    }
 
     function richHtml(){
       var ed = $('editorRich'), h = ed.innerHTML.trim();

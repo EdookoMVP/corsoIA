@@ -139,6 +139,10 @@
 
     .prose p{ font-size:var(--size-body); font-weight:var(--weight-body); line-height:1.78; color:var(--ink-soft); margin:0 0 1.05em; }
     .prose p:last-child{ margin-bottom:0; }
+    .prose figure.cardmedia{ margin:22px 0; text-align:center; }
+    .prose figure.cardmedia img{ max-width:100%; max-height:380px; border-radius:14px; border:1px solid var(--hair); }
+    .prose figure.cardmedia .video-wrap{ position:relative; padding-bottom:56.25%; height:0; border-radius:14px; overflow:hidden; border:1px solid var(--hair); }
+    .prose figure.cardmedia .video-wrap iframe{ position:absolute; inset:0; width:100%; height:100%; border:0; }
 
     /* parola che appare (effetto scrittura) */
     .prose .w{ opacity:0; animation:fadeWord .26s ease forwards; }
@@ -202,6 +206,7 @@
       .topbar{ padding:10px 0 14px; }
       .auth-card{ padding:32px 22px; }
       .fig img{ max-height:300px; }
+      .prose figure.cardmedia img{ max-height:260px; }
       .opt{ padding:15px 16px; }                 /* tap target più alto */
       .btn{ padding:14px 24px; font-size:1rem; } /* bottoni comodi col pollice */
       .done-email{ flex-direction:column; }
@@ -408,6 +413,7 @@
     div.id='card-'+card.id; div.className='card'+(isActive?' enter':'');
     div.innerHTML=buildCardHtml(card,isActive);
     document.getElementById('cards').appendChild(div);
+    renderMediaBlocks(div);
     if(isActive){
       if(card.tipo==='narrazione'){ streamNarrazione(card); }
       setTimeout(function(){ scrollToCard(card.id); }, 80);
@@ -494,6 +500,7 @@
 
     // Renderizza l'HTML pulito
     host.innerHTML=pulisciHTML(card.testo);
+    renderMediaBlocks(host);
 
     if(prefersReduced()){ reveal(); return; }
 
@@ -502,6 +509,7 @@
     // preservando intatti i tag HTML (strong, em, p, span…)
     var wordSpans=[];
     function wrapTextNode(node){
+      if(node.nodeType===1 && node.classList && node.classList.contains('cardmedia')) return; // non animare i media
       if(node.nodeType===3){
         var txt=node.textContent;
         if(!txt.trim()) return;
@@ -693,13 +701,47 @@
         var frag=document.createDocumentFragment();
         while(el.firstChild) frag.appendChild(el.firstChild);
         el.parentNode.replaceChild(frag,el);
+      } else if(tag==='img'){
+        var src=el.getAttribute('src');
+        clearAttrs(el); if(src) el.setAttribute('src',src);
+      } else if(tag==='figure'){
+        var cls=el.getAttribute('class'), dt=el.getAttribute('data-type'), du=el.getAttribute('data-url');
+        clearAttrs(el);
+        if(cls) el.setAttribute('class',cls);
+        if(dt) el.setAttribute('data-type',dt);
+        if(du) el.setAttribute('data-url',du);
+      } else if(tag==='a'){
+        var href=el.getAttribute('href');
+        clearAttrs(el); if(href){ el.setAttribute('href',href); el.setAttribute('target','_blank'); el.setAttribute('rel','noopener'); }
       } else {
         var f=filtraStile(el.getAttribute('style'));
-        if(f) el.setAttribute('style',f); else el.removeAttribute('style');
-        el.removeAttribute('class'); el.removeAttribute('id');
+        clearAttrs(el);
+        if(f) el.setAttribute('style',f);
       }
     });
     return tmp.innerHTML;
+  }
+  function clearAttrs(el){
+    Array.prototype.slice.call(el.attributes).forEach(function(a){ el.removeAttribute(a.name); });
+  }
+
+  /* Converte un link Drive/YouTube nell'URL da incorporare per il video */
+  function embedUrl(url){
+    if(!url) return '';
+    var yt=url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([\w-]+)/);
+    if(yt) return 'https://www.youtube.com/embed/'+yt[1];
+    var d=url.match(/\/file\/d\/([^/?]+)/)||url.match(/[?&]id=([^&]+)/);
+    if(d) return 'https://drive.google.com/file/d/'+d[1]+'/preview';
+    return url;
+  }
+  /* Trasforma i blocchi video (figure[data-type=video]) in iframe dentro un contenitore */
+  function renderMediaBlocks(root){
+    if(!root) return;
+    Array.prototype.slice.call(root.querySelectorAll('figure.cardmedia[data-type="video"]')).forEach(function(fig){
+      if(fig.querySelector('iframe')) return;
+      var embed=embedUrl(fig.getAttribute('data-url'));
+      fig.innerHTML='<div class="video-wrap"><iframe src="'+embed+'" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture" allowfullscreen></iframe></div>';
+    });
   }
   function apriAlert(m){ document.getElementById('alert-text').innerText=m; document.getElementById('alert').classList.remove('hidden'); }
   function chiudiAlert(){ document.getElementById('alert').classList.add('hidden'); }
