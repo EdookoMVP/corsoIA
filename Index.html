@@ -477,8 +477,32 @@
 
     function reveal(){ if(actions){ actions.classList.remove('pending'); actions.classList.add('reveal'); } }
 
-    // Renderizza l'HTML nella sua forma definitiva
-    host.innerHTML=card.testo;
+    // Pulisce il testo dai tag Google Docs (span con font-size, font-family, color inline)
+    // preservando grassetto, corsivo, sottolineato, p, h4, ul, ol
+    function pulisciHTML(html){
+      var tmp=document.createElement('div');
+      tmp.innerHTML=html;
+      // rimuove attributi style e class da tutti i tag tranne quelli strutturali
+      tmp.querySelectorAll('*').forEach(function(el){
+        var tag=el.tagName.toLowerCase();
+        if(['b','strong','i','em','u','h4','ul','ol','li','p','br','a','div'].indexOf(tag)===-1){
+          // sostituisce span con il suo contenuto
+          if(tag==='span'){
+            var frag=document.createDocumentFragment();
+            while(el.firstChild) frag.appendChild(el.firstChild);
+            el.parentNode.replaceChild(frag,el);
+          }
+        } else {
+          el.removeAttribute('style');
+          el.removeAttribute('class');
+          el.removeAttribute('id');
+        }
+      });
+      return tmp.innerHTML;
+    }
+
+    // Renderizza l'HTML pulito
+    host.innerHTML=pulisciHTML(card.testo);
 
     if(prefersReduced()){ reveal(); return; }
 
