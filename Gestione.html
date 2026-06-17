@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --paper:#FAF8F4; --surface:#FFFFFF; --ink:#2B2B33; --ink-soft:#54545F;
+      --muted:#9A9AA3; --hair:#ECE8E0; --accent:#5B5BD6; --accent-700:#4444B8;
+      --accent-soft:#EDEDFB; --ok:#16A06A; --ok-soft:#E6F6EE; --ko:#E05656; --ko-soft:#FCECEC;
+      --font-display:'Quicksand',sans-serif; --font-body:'Nunito',system-ui,sans-serif;
+    }
+    *{ box-sizing:border-box; }
+    body{ margin:0; font-family:var(--font-body); background:var(--paper); color:var(--ink); font-size:15.5px; }
+    .wrap{ padding:24px 40px 40px; max-width:1080px; margin:0 auto; }
+    h1{ font-family:var(--font-display); font-size:1.4rem; margin:0 0 2px; }
+    .sub{ color:var(--muted); font-size:.85rem; margin:0 0 22px; }
+    .eyebrow{ font-size:.68rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--accent); margin:0 0 6px; }
+
+    label{ display:block; font-weight:700; font-size:.85rem; color:var(--ink-soft); margin:18px 0 7px; }
+    .hint{ font-weight:400; color:var(--muted); font-size:.78rem; }
+    input[type=text], input[type=url], textarea, select{
+      width:100%; padding:12px 14px; font-family:inherit; font-size:.98rem;
+      border:1.5px solid var(--hair); border-radius:10px; background:#fff; color:var(--ink);
+    }
+    textarea{ resize:vertical; min-height:130px; line-height:1.6; }
+
+    /* ── EDITOR ── */
+    .toolbar{ display:flex; flex-wrap:wrap; gap:4px; align-items:center;
+      padding:8px 10px; border:1.5px solid var(--hair); border-bottom:none;
+      border-radius:11px 11px 0 0; background:#FBFAF7; }
+    .toolbar button{ min-width:38px; height:34px; padding:0 10px; border:1px solid transparent;
+      background:transparent; border-radius:8px; cursor:pointer; font-family:inherit; font-size:.92rem; color:var(--ink-soft); }
+    .toolbar button:hover{ background:#fff; border-color:var(--hair); color:var(--accent); }
+    .toolbar .sep{ width:1px; height:22px; background:var(--hair); margin:0 5px; }
+    .toolbar .spacing{ margin-left:auto; display:flex; align-items:center; gap:7px; font-size:.78rem; font-weight:700; color:var(--ink-soft); }
+    .toolbar .spacing select{ width:auto; padding:6px 9px; font-size:.82rem; border-radius:8px; }
+    .editor{ min-height:260px; border:1.5px solid var(--hair); border-radius:0 0 11px 11px;
+      padding:18px 20px; background:#fff; font-size:1.02rem; line-height:1.6; overflow-y:auto; }
+    .editor:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+    .editor:empty:before{ content:attr(data-ph); color:#B8B6AE; pointer-events:none; }
+    .editor h4{ font-family:var(--font-display); font-size:1.12rem; margin:.7em 0 .35em; color:var(--ink); }
+    .editor p{ margin:0 0 .75em; }
+    .editor ul, .editor ol{ margin:0 0 .75em; padding-left:1.5em; }
+    .editor a{ color:var(--accent); }
+
+    .row{ display:flex; gap:14px; }
+    .row > *{ flex:1; }
+    .seg{ display:flex; gap:8px; }
+    .seg label{ margin:0; }
+    .seg .chip{ flex:1; text-align:center; padding:10px; border:1.5px solid var(--hair); border-radius:10px; cursor:pointer; font-weight:600; font-size:.85rem; background:#fff; }
+    .seg input{ display:none; }
+    .seg input:checked + .chip{ border-color:var(--accent); background:var(--accent-soft); color:var(--accent-700); }
+
+    .card-box{ background:var(--surface); border:1px solid var(--hair); border-radius:16px; padding:26px 30px; margin-bottom:20px; }
+    .group{ display:none; }
+    .group.on{ display:block; }
+
+    .btn{ appearance:none; border:none; cursor:pointer; background:var(--accent); color:#fff;
+      font-family:inherit; font-weight:700; font-size:.92rem; padding:12px 28px; border-radius:11px;
+      box-shadow:0 2px 6px rgba(91,91,214,.22); }
+    .btn:hover{ background:var(--accent-700); }
+    .btn:disabled{ background:#CBCBDD; box-shadow:none; }
+    .btn-ghost{ background:transparent; color:var(--ink-soft); box-shadow:none; border:1.5px solid var(--hair); }
+    .btn-ghost:hover{ background:#fff; color:var(--accent); border-color:var(--accent); }
+    .actions{ display:flex; gap:10px; align-items:center; margin-top:16px; }
+    .actions .spacer{ flex:1; }
+
+    .preview{ background:#fff; border:1px dashed var(--hair); border-radius:10px; padding:13px 15px; margin-top:8px; line-height:1.9; font-size:.95rem; min-height:20px; }
+    .pv-chip{ display:inline-block; border:1.5px solid var(--accent); color:var(--accent-700); background:var(--accent-soft);
+      border-radius:8px; padding:2px 9px; margin:0 2px; font-size:.82rem; font-weight:600; }
+    .pv-chip.miss{ border-color:var(--ko); color:var(--ko); background:var(--ko-soft); }
+
+    .toast{ position:fixed; left:50%; bottom:20px; transform:translateX(-50%); background:var(--ink); color:#fff;
+      padding:12px 22px; border-radius:11px; font-weight:600; font-size:.88rem; opacity:0; pointer-events:none; transition:opacity .25s; }
+    .toast.show{ opacity:1; }
+
+    .lista{ margin-top:28px; }
+    .lista h2{ font-family:var(--font-display); font-size:1rem; margin:0 0 12px; }
+    .item{ display:flex; align-items:center; gap:13px; background:#fff; border:1px solid var(--hair); border-radius:11px; padding:11px 15px; margin-bottom:8px; }
+    .item .id{ font-weight:800; color:var(--accent); width:28px; font-size:.9rem; }
+    .item .tag{ font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); white-space:nowrap; width:130px; }
+    .item .txt{ flex:1; color:var(--ink-soft); font-size:.85rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .item button{ border:none; background:transparent; cursor:pointer; font-weight:700; font-size:.8rem; padding:6px 10px; border-radius:8px; }
+    .item .edit{ color:var(--accent); }
+    .item .del{ color:var(--ko); }
+    .empty{ color:var(--muted); font-size:.85rem; padding:8px 2px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <p class="eyebrow">Papiro Dinamica</p>
+    <h1>Gestione Card</h1>
+    <p class="sub">Crea una card e salvala nel foglio. L'app studente la legge subito.</p>
+
+    <div class="card-box">
+      <input type="hidden" id="card-id" value="">
+
+      <label>Tipo di card</label>
+      <select id="tipo" onchange="cambiaTipo()">
+        <option value="narrazione">Narrazione — solo testo (+ media)</option>
+        <option value="quiz">Risposta multipla — domanda con opzioni</option>
+        <option value="aperta">Risposta aperta — lo studente scrive un commento</option>
+        <option value="completamento">Completamento — frase con parole da scegliere</option>
+      </select>
+
+      <label id="lbl-testo">Testo della narrazione</label>
+
+      <!-- EDITOR RICCO -->
+      <div id="rich-wrap">
+        <div class="toolbar" id="toolbar">
+          <button type="button" data-cmd="bold" title="Grassetto"><b>G</b></button>
+          <button type="button" data-cmd="italic" title="Corsivo"><i>C</i></button>
+          <button type="button" data-cmd="underline" title="Sottolineato"><u>S</u></button>
+          <span class="sep"></span>
+          <button type="button" data-cmd="formatBlock" data-val="h4" title="Sottotitolo">Titolo</button>
+          <button type="button" data-cmd="insertUnorderedList" title="Elenco puntato">• Lista</button>
+          <button type="button" data-cmd="insertOrderedList" title="Elenco numerato">1. Lista</button>
+          <span class="sep"></span>
+          <button type="button" data-cmd="createLink" title="Inserisci link">🔗 Link</button>
+          <button type="button" data-cmd="removeFormat" title="Rimuovi formattazione">✕ Pulisci</button>
+          <span class="spacing">
+            Interlinea
+            <select id="interlinea" onchange="setInterlinea()">
+              <option value="1.6">Normale</option>
+              <option value="1.9">Ariosa</option>
+              <option value="2.3">Molto ariosa</option>
+            </select>
+          </span>
+        </div>
+        <div id="editorRich" class="editor" contenteditable="true"
+          data-ph="Scrivi qui… usa la barra per grassetto, elenchi, sottotitoli."></div>
+      </div>
+
+      <!-- CASELLA SEMPLICE (solo completamento) -->
+      <textarea id="testoPlain" class="group" style="min-height:140px;"
+        placeholder="Es: Il sole tramonta a [est / *ovest]."></textarea>
+      <div id="dc-help" class="hint group" style="margin-top:6px;">
+        Scrivi la frase mettendo ogni buco tra <b>[ ]</b>, le opzioni separate da <b>/</b>,
+        con <b>*</b> davanti a quella giusta.<br>
+        Esempio: <code>La rete ha circa [dieci / *mille / diecimila] neuroni.</code>
+      </div>
+      <div id="dc-preview-wrap" class="group" style="margin-top:10px;">
+        <label style="margin:0 0 6px;">Anteprima</label>
+        <div class="preview" id="dc-preview"></div>
+      </div>
+
+      <!-- OPZIONI (quiz) -->
+      <div id="g-quiz" class="group">
+        <label>Opzioni di risposta <span class="hint">— una per riga, metti <b>*</b> davanti a quella corretta</span></label>
+        <textarea id="opzioni" style="min-height:120px;" placeholder="*Sì&#10;No"></textarea>
+      </div>
+
+      <!-- FEEDBACK (quiz) -->
+      <div id="g-feedback" class="group">
+        <div class="row">
+          <div>
+            <label>Feedback se risponde giusto</label>
+            <textarea id="fbEsatto" style="min-height:100px;" placeholder="Esatto! …"></textarea>
+          </div>
+          <div>
+            <label>Feedback se sbaglia</label>
+            <textarea id="fbErrato" style="min-height:100px;" placeholder="In realtà…"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- MESSAGGIO (aperta) -->
+      <div id="g-aperta" class="group">
+        <label>Messaggio dopo l'invio <span class="hint">— facoltativo</span></label>
+        <textarea id="msgAperta" style="min-height:90px;" placeholder="Grazie per la tua riflessione!"></textarea>
+      </div>
+
+      <!-- MEDIA -->
+      <label>Immagine o video <span class="hint">— facoltativo</span></label>
+      <div class="seg" style="margin-bottom:10px;">
+        <label><input type="radio" name="media" value="" checked onchange="toggleMedia()"><span class="chip">Nessuno</span></label>
+        <label><input type="radio" name="media" value="immagine" onchange="toggleMedia()"><span class="chip">Immagine</span></label>
+        <label><input type="radio" name="media" value="video" onchange="toggleMedia()"><span class="chip">Video</span></label>
+      </div>
+      <input type="url" id="mediaUrl" placeholder="Incolla il link (Google Drive o YouTube)" disabled>
+
+      <div class="actions">
+        <button class="btn" id="btn-salva" onclick="salva()">Salva card</button>
+        <button class="btn btn-ghost" onclick="pulisci()">Nuova card</button>
+        <span class="spacer"></span>
+        <span id="modo" class="hint"></span>
+      </div>
+    </div>
+
+    <div class="lista">
+      <h2>Card nel corso (<span id="conta">0</span>)</h2>
+      <div id="elenco"><div class="empty">Caricamento…</div></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    function $(id){ return document.getElementById(id); }
+    try{ document.execCommand('defaultParagraphSeparator', false, 'p'); }catch(e){}
+
+    /* barra strumenti */
+    var toolbar = $('toolbar');
+    toolbar.addEventListener('mousedown', function(e){ if(e.target.closest('button')) e.preventDefault(); });
+    toolbar.addEventListener('click', function(e){
+      var b = e.target.closest('button'); if(!b) return;
+      var cmd = b.getAttribute('data-cmd'), val = b.getAttribute('data-val');
+      $('editorRich').focus();
+      if(cmd === 'createLink'){
+        var u = prompt('Indirizzo del link (https://…)'); if(u) document.execCommand('createLink', false, u); return;
+      }
+      if(cmd === 'formatBlock'){
+        var inH = isInside('H4'); document.execCommand('formatBlock', false, inH ? 'p' : (val||'h4')); return;
+      }
+      document.execCommand(cmd, false, null);
+    });
+    function isInside(tag){ var n=window.getSelection().anchorNode; while(n){ if(n.nodeName===tag) return true; n=n.parentNode; } return false; }
+    function setInterlinea(){ $('editorRich').style.lineHeight = $('interlinea').value; }
+
+    function richHtml(){
+      var ed = $('editorRich'), h = ed.innerHTML.trim();
+      if(!h || h==='<br>' || h==='<p></p>') return '';
+      return '<div style="line-height:'+$('interlinea').value+'">'+h+'</div>';
+    }
+    function loadRich(testo){
+      var ed=$('editorRich'), sel=$('interlinea');
+      sel.value='1.6'; ed.style.lineHeight='1.6';
+      if(!testo){ ed.innerHTML=''; return; }
+      var tmp=document.createElement('div'); tmp.innerHTML=testo;
+      var first=tmp.firstElementChild;
+      if(tmp.children.length===1 && first && first.tagName==='DIV' && first.style.lineHeight){
+        sel.value=first.style.lineHeight; ed.style.lineHeight=first.style.lineHeight;
+        ed.innerHTML=first.innerHTML;
+      } else if(/<[a-z]/i.test(testo)){
+        ed.innerHTML=testo;
+      } else {
+        ed.innerHTML=testo.split(/\n\s*\n/).map(function(p){
+          return '<p>'+esc(p).replace(/\n/g,'<br>')+'</p>';
+        }).join('');
+      }
+    }
+
+    function cambiaTipo(){
+      var t = $('tipo').value, isDC = (t==='completamento');
+      $('rich-wrap').style.display = isDC ? 'none' : 'block';
+      $('testoPlain').classList.toggle('on', isDC);
+      $('dc-help').classList.toggle('on', isDC);
+      $('dc-preview-wrap').classList.toggle('on', isDC);
+      $('g-quiz').classList.toggle('on', t==='quiz');
+      $('g-feedback').classList.toggle('on', t==='quiz');
+      $('g-aperta').classList.toggle('on', t==='aperta');
+      var lbl={narrazione:'Testo della narrazione',quiz:'Domanda',aperta:'Consegna / domanda aperta',completamento:'Frase da completare'};
+      $('lbl-testo').innerText=lbl[t];
+      if(isDC) aggiornaPreview();
+    }
+
+    function toggleMedia(){
+      var v=document.querySelector('input[name=media]:checked').value;
+      $('mediaUrl').disabled=!v; if(!v) $('mediaUrl').value='';
+    }
+
+    function aggiornaPreview(){
+      var testo=$('testoPlain').value;
+      var html=testo.replace(/\[([^\]]+)\]/g,function(_,inner){
+        var opts=inner.split('/').map(function(o){return o.trim();}).filter(Boolean);
+        var hasCorrect=opts.some(function(o){return o.charAt(0)==='*';});
+        var chips=opts.map(function(o){
+          var ok=o.charAt(0)==='*';
+          return '<span class="pv-chip">'+esc(ok?o.substring(1).trim():o)+'</span>';
+        }).join(' ');
+        return hasCorrect?chips:'<span class="pv-chip miss">manca la * sulla giusta</span> '+chips;
+      });
+      $('dc-preview').innerHTML=html||'<span style="color:var(--muted)">L\'anteprima appare qui…</span>';
+    }
+    $('testoPlain').addEventListener('input',function(){ if($('tipo').value==='completamento') aggiornaPreview(); });
+
+    function toast(msg){ var t=$('toast'); t.innerText=msg; t.classList.add('show'); setTimeout(function(){t.classList.remove('show');},2200); }
+
+    function salva(){
+      var tipo=$('tipo').value;
+      var testo=(tipo==='completamento')?$('testoPlain').value.trim():richHtml();
+      if(!testo){toast('Scrivi il testo della card');return;}
+      if(tipo==='quiz'&&!$('opzioni').value.trim()){toast('Aggiungi le opzioni');return;}
+      var payload={
+        id:$('card-id').value||'', tipo:tipo, testo:testo,
+        mediaUrl:$('mediaUrl').value.trim(),
+        media:document.querySelector('input[name=media]:checked').value,
+        opzioniRaw:$('opzioni').value,
+        feedbackEsatto:tipo==='aperta'?$('msgAperta').value:$('fbEsatto').value,
+        feedbackErrato:$('fbErrato').value
+      };
+      $('btn-salva').disabled=true;
+      google.script.run
+        .withSuccessHandler(function(lista){
+          $('btn-salva').disabled=false;
+          toast($('card-id').value?'Card aggiornata':'Card salvata');
+          pulisci(); mostraLista(lista);
+        })
+        .withFailureHandler(function(err){
+          $('btn-salva').disabled=false;
+          toast('Errore: '+err.message);
+        })
+        .salvaCard(payload);
+    }
+
+    function pulisci(){
+      $('card-id').value=''; loadRich(''); $('testoPlain').value='';
+      $('opzioni').value=''; $('fbEsatto').value=''; $('fbErrato').value=''; $('msgAperta').value='';
+      $('mediaUrl').value='';
+      document.querySelector('input[name=media][value=""]').checked=true;
+      toggleMedia(); $('modo').innerText='';
+      $('tipo').value='narrazione'; cambiaTipo();
+    }
+
+    function modifica(id){
+      google.script.run.withSuccessHandler(function(c){
+        if(!c) return;
+        $('card-id').value=c.id; $('tipo').value=c.tipo; cambiaTipo();
+        if(c.tipo==='completamento'){$('testoPlain').value=c.testo;aggiornaPreview();}
+        else{loadRich(c.testo);}
+        $('opzioni').value=c.opzioniRaw||'';
+        if(c.tipo==='aperta'){$('msgAperta').value=c.feedbackEsatto||'';}
+        else{$('fbEsatto').value=c.feedbackEsatto||'';$('fbErrato').value=c.feedbackErrato||'';}
+        document.querySelector('input[name=media][value="'+(c.media||'')+'"]').checked=true;
+        toggleMedia(); $('mediaUrl').value=c.mediaUrl||'';
+        $('modo').innerText='Stai modificando la card #'+c.id;
+        window.scrollTo(0,0);
+      }).caricaCard(id);
+    }
+
+    function elimina(id){
+      if(!confirm('Eliminare la card #'+id+'?')) return;
+      google.script.run.withSuccessHandler(mostraLista).eliminaCard(id);
+    }
+
+    function mostraLista(lista){
+      $('conta').innerText=lista.length;
+      var box=$('elenco');
+      if(!lista.length){box.innerHTML='<div class="empty">Nessuna card ancora. Creane una qui sopra.</div>';return;}
+      box.innerHTML=lista.map(function(c){
+        return '<div class="item">'+
+          '<span class="id">'+c.id+'</span>'+
+          '<span class="tag">'+esc(c.tipoLabel)+'</span>'+
+          '<span class="txt">'+esc(c.anteprima)+'</span>'+
+          '<button class="edit" onclick="modifica('+c.id+')">Modifica</button>'+
+          '<button class="del" onclick="elimina('+c.id+')">Elimina</button>'+
+        '</div>';
+      }).join('');
+    }
+    function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+    cambiaTipo();
+    google.script.run.withSuccessHandler(mostraLista).elencaCard();
+  </script>
+</body>
+</html>

@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Papiro Dinamica — Come funziona una IA</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- ░░ FONT: per cambiarli, sostituisci i nomi qui sotto e nelle variabili --font-* ░░ -->
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* ╔══════════════════════════════════════════════════════════════╗
+       ║  PER CAMBIARE FONT E DIMENSIONI MODIFICA SOLO QUESTE RIGHE     ║
+       ╚══════════════════════════════════════════════════════════════╝
+       • --font-display  = font dei TITOLI
+       • --font-body     = font del TESTO da leggere e dell'interfaccia
+       • --size-*        = dimensioni (in "rem": 1rem ≈ 16px. 1.1rem ≈ 17-18px)
+       Per usare un altro font di Google Fonts: cambia il link <link ...> qui
+       sopra inserendo il nome del font, poi scrivi lo stesso nome qui sotto.   */
+    :root{
+      --font-display:'Quicksand', 'Nunito', system-ui, sans-serif;
+      --font-body:'Nunito', system-ui, -apple-system, sans-serif;
+
+      --size-title:1.4rem;     /* titolo della card            */
+      --size-body:1.1rem;      /* testo della narrazione       */
+      --size-question:1.1rem;  /* testo delle domande          */
+      --size-option:1rem;      /* risposte del quiz            */
+
+      /* ── Colori (puoi cambiarli, ma non è necessario) ── */
+      --paper:#FAF8F4;
+      --surface:#FFFFFF;
+      --ink:#2B2B33;
+      --ink-soft:#54545F;
+      --muted:#9A9AA3;
+      --hair:#ECE8E0;
+      --hair-soft:#F3EFE8;
+      --accent:#5B5BD6;
+      --accent-700:#4444B8;
+      --accent-soft:#EDEDFB;
+      --ok:#16A06A;
+      --ok-soft:#E6F6EE;
+      --ko:#E05656;
+      --ko-soft:#FCECEC;
+      --shadow:0 1px 2px rgba(43,43,51,.04), 0 10px 30px rgba(43,43,51,.06);
+      --radius:18px;
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; }
+    body{
+      margin:0; font-family:var(--font-body);
+      background:var(--paper); color:var(--ink);
+      -webkit-font-smoothing:antialiased;
+    }
+    button{ font-family:inherit; }
+    .hidden{ display:none !important; }
+
+    /* ── Bottoni ── */
+    .btn{
+      appearance:none; border:none; cursor:pointer;
+      background:var(--accent); color:#fff; font-weight:700; letter-spacing:.01em;
+      font-size:.95rem; padding:12px 28px; border-radius:14px;
+      transition:background .18s ease, transform .06s ease;
+      box-shadow:0 2px 6px rgba(91,91,214,.22);
+    }
+    .btn:hover{ background:var(--accent-700); }
+    .btn:active{ transform:translateY(1px); }
+    .btn:disabled{ background:#CBCBDD; box-shadow:none; cursor:not-allowed; }
+    .btn-ghost{ background:transparent; color:var(--accent); box-shadow:none; padding:6px 0; font-weight:700; font-size:.82rem; }
+    .btn-ghost:hover{ background:transparent; text-decoration:underline; }
+    :focus-visible{ outline:2px solid var(--accent); outline-offset:3px; border-radius:6px; }
+
+    /* ── Ingresso ── */
+    #auth{ min-height:100%; display:flex; align-items:center; justify-content:center; padding:28px; }
+    .auth-card{ width:100%; max-width:440px; background:var(--surface); border:1px solid var(--hair); border-radius:24px; box-shadow:var(--shadow); padding:42px 36px; }
+    .eyebrow{ font-size:.72rem; font-weight:700; letter-spacing:.13em; text-transform:uppercase; color:var(--accent); margin:0 0 14px; }
+    .auth-card h1{ font-family:var(--font-display); font-weight:700; font-size:1.7rem; line-height:1.2; margin:0 0 8px; }
+    .auth-sub{ color:var(--muted); font-size:.92rem; margin:0 0 26px; }
+    .field{ margin-bottom:12px; }
+    .field input{ width:100%; padding:13px 16px; font-size:.95rem; border:1.5px solid var(--hair); border-radius:13px; background:#fff; color:var(--ink); }
+    .field input::placeholder{ color:#B8B6AE; }
+    .field input:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+    #auth .btn{ width:100%; margin-top:10px; padding:14px; }
+
+    /* ── Layout ── */
+    #app{ display:none; min-height:100%; }
+    #app.show{ display:grid; grid-template-columns:300px 1fr; }
+
+    /* Rail percorso */
+    .rail{ border-right:1px solid var(--hair); background:var(--surface); padding:30px 24px 24px; display:flex; flex-direction:column; height:100vh; position:sticky; top:0; }
+    .rail-brand{ margin-bottom:24px; }
+    .rail-brand .eyebrow{ margin-bottom:6px; }
+    .rail-brand h2{ font-family:var(--font-display); font-weight:700; font-size:1.2rem; margin:0; line-height:1.25; }
+    .steps{ flex:1; overflow-y:auto; margin:0 -6px; padding:0 6px; }
+    .step{ position:relative; display:flex; gap:14px; align-items:flex-start; padding:9px 0; }
+    .step::before{ content:""; position:absolute; left:13px; top:30px; bottom:-9px; width:2px; background:var(--hair); }
+    .step:last-child::before{ display:none; }
+    .step.done::before{ background:var(--accent); }
+    .marker{
+      flex-shrink:0; width:28px; height:28px; border-radius:50%;
+      display:flex; align-items:center; justify-content:center; z-index:1;
+      border:2px solid var(--hair); background:var(--surface); color:var(--muted);
+      transition:all .25s ease;
+    }
+    .marker svg{ width:14px; height:14px; }
+    .step.active .marker{ border-color:var(--accent); color:var(--accent); box-shadow:0 0 0 4px var(--accent-soft); }
+    .step.done .marker{ border-color:var(--accent); background:var(--accent); color:#fff; }
+    .step .label{ font-size:.88rem; line-height:1.4; color:var(--muted); padding-top:4px; }
+    .step.active .label{ color:var(--accent-700); font-weight:700; }
+    .step.done .label{ color:var(--ink-soft); }
+    .step.clickable{ cursor:pointer; }
+    .step.clickable:hover .label{ color:var(--accent); }
+    .rail-foot{ border-top:1px solid var(--hair); margin-top:18px; padding-top:16px; font-size:.82rem; color:var(--muted); }
+    .rail-foot .who{ display:block; color:var(--ink); font-weight:700; margin-bottom:4px; }
+
+    /* Lettore */
+    .reader{ height:100vh; overflow-y:auto; }
+    .reader-inner{ max-width:720px; margin:0 auto; padding:30px 28px 130px; }
+    .topbar{ position:sticky; top:0; z-index:5; background:linear-gradient(var(--paper) 70%, rgba(250,248,244,0)); padding:8px 0 16px; margin-bottom:6px; display:flex; align-items:center; gap:14px; }
+    .progress{ flex:1; height:6px; border-radius:99px; background:var(--hair); overflow:hidden; }
+    .progress > i{ display:block; height:100%; width:0; background:var(--accent); border-radius:99px; transition:width .4s ease; }
+    .progress-label{ font-size:.78rem; font-weight:700; color:var(--muted); white-space:nowrap; }
+
+    /* Card */
+    .card{ background:var(--surface); border:1px solid var(--hair); border-radius:var(--radius); box-shadow:var(--shadow); padding:30px 32px; margin-bottom:22px; }
+    .card.enter{ animation:rise .5s cubic-bezier(.2,.7,.25,1) both; }
+    @keyframes rise{ from{ opacity:0; transform:translateY(18px); } to{ opacity:1; transform:translateY(0); } }
+    .card .kind{ font-size:.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--accent); margin:0 0 10px; }
+    .card h3{ font-family:var(--font-display); font-weight:700; letter-spacing:-.01em; font-size:var(--size-title); line-height:1.25; margin:0 0 18px; }
+
+    .fig{ margin:0 0 22px; border-radius:14px; overflow:hidden; border:1px solid var(--hair); background:var(--hair-soft); }
+    .fig img{ display:block; width:100%; height:auto; max-height:220px; object-fit:contain; background:var(--hair-soft); }
+    .fig.fallback{ aspect-ratio:16/9; display:flex; align-items:center; justify-content:center;
+      background:radial-gradient(120% 120% at 0% 0%, var(--accent-soft) 0%, transparent 55%), radial-gradient(120% 120% at 100% 100%, #EAEAFA 0%, transparent 50%), var(--hair-soft);
+      color:var(--muted); font-size:.82rem; }
+    .fig.fallback span{ padding:6px 12px; border:1px solid var(--hair); border-radius:99px; background:rgba(255,255,255,.6); }
+
+    .prose p{ font-size:var(--size-body); line-height:1.78; color:var(--ink-soft); margin:0 0 1.05em; }
+    .prose p:last-child{ margin-bottom:0; }
+
+    /* parola che appare (effetto scrittura) */
+    .prose .w{ opacity:0; animation:fadeWord .26s ease forwards; }
+    @keyframes fadeWord{ to{ opacity:1; } }
+    .caret{ display:inline-block; width:2px; height:1.05em; background:var(--accent); margin-left:2px; vertical-align:-2px; border-radius:1px; animation:blink 1s steps(2,end) infinite; }
+    @keyframes blink{ 50%{ opacity:0; } }
+
+    .card-actions{ margin-top:24px; }
+    .card-actions.pending{ display:none; }
+    .card-actions.reveal{ animation:rise .35s ease both; }
+
+    .question{ font-size:var(--size-question); line-height:1.6; color:var(--ink-soft); margin:0 0 20px; }
+    .options{ display:flex; flex-direction:column; gap:11px; margin-bottom:6px; }
+    .opt{ display:flex; align-items:center; gap:13px; padding:14px 18px; border:1.5px solid var(--hair); border-radius:14px; cursor:pointer; background:#fff; color:var(--ink); font-size:var(--size-option); transition:all .15s ease; text-align:left; }
+    .opt:hover{ border-color:#C9C9EC; background:#FCFCFF; }
+    .opt .tick{ flex-shrink:0; width:21px; height:21px; border-radius:50%; border:2px solid var(--hair); display:flex; align-items:center; justify-content:center; transition:all .15s ease; }
+    .opt .tick svg{ width:11px; height:11px; opacity:0; transition:opacity .12s ease; }
+    .opt.selected{ border-color:var(--accent); background:var(--accent-soft); font-weight:700; }
+    .opt.selected .tick{ border-color:var(--accent); background:var(--accent); }
+    .opt.selected .tick svg{ opacity:1; }
+    .opt.correct{ border-color:var(--ok); background:var(--ok-soft); color:#06603F; font-weight:700; }
+    .opt.correct .tick{ border-color:var(--ok); background:var(--ok); }
+    .opt.correct .tick svg{ opacity:1; }
+    .opt.wrong{ border-color:var(--ko); background:var(--ko-soft); color:#8F2A2A; font-weight:700; }
+    .opt.wrong .tick{ border-color:var(--ko); background:var(--ko); }
+    .opt.wrong .tick svg{ opacity:1; }
+    .opt[disabled]{ cursor:default; }
+    .opt[disabled]:hover{ background:#fff; border-color:var(--hair); }
+    .opt.correct[disabled]:hover{ border-color:var(--ok); background:var(--ok-soft); }
+    .opt.selected[disabled]:hover{ border-color:var(--accent); background:var(--accent-soft); }
+
+    .text-input{ width:100%; padding:13px 16px; font-size:.97rem; border:1.5px solid var(--hair); border-radius:13px; margin-bottom:6px; }
+    .text-input:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+
+    .feedback{ margin-top:18px; padding:14px 16px; border-radius:13px; font-size:.92rem; line-height:1.55; display:none; }
+    .feedback.show{ display:block; animation:rise .3s ease both; }
+    .feedback.ok{ background:var(--ok-soft); border:1px solid #BEE9D6; color:#06603F; }
+    .feedback.ko{ background:var(--ko-soft); border:1px solid #F2CBCB; color:#8F2A2A; }
+
+    .done-screen{ text-align:center; padding:60px 32px; background:radial-gradient(120% 120% at 50% 0%, var(--accent-soft) 0%, transparent 60%), var(--surface); border:1px solid var(--hair); border-radius:var(--radius); box-shadow:var(--shadow); }
+    .done-screen .seal{ width:58px; height:58px; border-radius:50%; margin:0 auto 18px; background:var(--accent); color:#fff; display:flex; align-items:center; justify-content:center; }
+    .done-screen h3{ font-family:var(--font-display); font-weight:700; font-size:1.5rem; margin:0 0 8px; }
+    .done-screen p{ color:var(--muted); font-size:.95rem; margin:0; }
+
+    #alert{ position:fixed; inset:0; z-index:50; display:flex; align-items:center; justify-content:center; background:rgba(43,43,51,.42); padding:18px; backdrop-filter:blur(2px); }
+    .alert-box{ background:#fff; border-radius:20px; padding:28px 26px; max-width:360px; width:100%; text-align:center; box-shadow:0 12px 40px rgba(0,0,0,.18); }
+    .alert-box p{ color:var(--ink-soft); font-size:.95rem; line-height:1.5; margin:0 0 20px; }
+    .alert-box .btn{ width:100%; }
+
+    @media (max-width:880px){
+      #app.show{ grid-template-columns:1fr; }
+      .rail{ display:none; }
+      .reader{ height:auto; }
+      .reader-inner{ padding:22px 18px 100px; }
+      .card{ padding:24px 20px; }
+    }
+    @media (prefers-reduced-motion:reduce){ *{ animation:none !important; transition:none !important; } }
+  </style>
+</head>
+<body>
+
+  <!-- ALERT -->
+  <div id="alert" class="hidden">
+    <div class="alert-box">
+      <p id="alert-text"></p>
+      <button class="btn" onclick="chiudiAlert()">Ho capito</button>
+    </div>
+  </div>
+
+  <!-- INGRESSO -->
+  <div id="auth">
+    <div class="auth-card">
+      <p class="eyebrow">Papiro Dinamica · Modulo 1</p>
+      <h1>Come funziona un'Intelligenza Artificiale</h1>
+      <p class="auth-sub">Un percorso a piccoli passi: leggi, rifletti, rispondi. Costruirai i concetti uno alla volta.</p>
+      <div class="field"><input type="text"  id="in-nome"    placeholder="Nome"></div>
+      <div class="field"><input type="text"  id="in-cognome" placeholder="Cognome"></div>
+      <div class="field"><input type="email" id="in-email"   placeholder="Email"></div>
+      <button class="btn" onclick="startPlatform()">Inizia il percorso</button>
+    </div>
+  </div>
+
+  <!-- APP -->
+  <div id="app">
+    <aside class="rail">
+      <div class="rail-brand">
+        <p class="eyebrow">Percorso</p>
+        <h2>Come funziona una IA</h2>
+      </div>
+      <nav class="steps" id="steps"></nav>
+      <div class="rail-foot">
+        <span class="who" id="who"></span>
+        <button class="btn-ghost" onclick="logout()">Esci</button>
+      </div>
+    </aside>
+
+    <main class="reader">
+      <div class="reader-inner">
+        <div class="topbar">
+          <div class="progress"><i id="bar"></i></div>
+          <span class="progress-label" id="prog"></span>
+        </div>
+        <div id="cards"></div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+  /* ░░ VELOCITÀ DEL TESTO CHE SCORRE (millisecondi per parola). Più basso = più veloce ░░ */
+  var VELOCITA_TESTO = 45;
+
+  /* ══════════════════════════════════════════════════
+     CONTENUTO DI RISERVA (solo per l'anteprima fuori da Apps Script)
+     ══════════════════════════════════════════════════ */
+  var FALLBACK_CARDS = [
+    { id:1, tipo:'narrazione', titolo:'Un cambio di paradigma',
+      testo:"Ciao! Oggi capiremo a livello intuitivo come funziona una rete neurale e cosa caratterizza i modelli di Intelligenza Artificiale Generativa che usi tutti i giorni.\n\nGuarda questa immagine: una macchia confusa di pixel grigi e neri, tutta sgranata. Eppure il tuo cervello dà un'occhiata e, in una frazione di secondo, senza il minimo sforzo, giunge a una conclusione certa: «è un tre».\n\nIl nostro sistema visivo è frutto di milioni di anni di evoluzione. Diamo per scontato quanto sia facile, per noi, riconoscere uno schema.",
+      mediaUrl:'https://drive.google.com/file/d/1sjgppM9ptrUmpeQAlgqZTAkPq0icYRhY/view', opzioni:[], rispostaCorretta:'', feedbackEsatto:'', feedbackErrato:'' },
+    { id:2, tipo:'narrazione', titolo:"L'illusione della semplicità",
+      testo:"La cosa interessante è proprio questa: siccome a noi sembra facile, per decenni abbiamo pensato che sarebbe stato facile insegnarlo anche a un computer. Questa illusione ha dato il via a una delle avventure più affascinanti e complesse del secolo scorso — un'avventura ancora oggi in pieno svolgimento.\n\nNell'estate del 1956, a Dartmouth, un gruppo di persone si riunisce convinto di poter rispondere in pochi mesi a una domanda enorme: come si rende intelligente una macchina? E non erano persone qualsiasi: in quella stanza c'erano alcune delle menti più brillanti del Novecento.",
+      mediaUrl:'https://drive.google.com/file/d/13XuSWldFhwmCbRToxxTe0uKSgILE_6S6/view', opzioni:[], rispostaCorretta:'', feedbackEsatto:'', feedbackErrato:'' },
+    { id:3, tipo:'narrazione', titolo:'Il problema delle regole rigide',
+      testo:"Il sogno svanisce in fretta. Si scopre che chiedere a una macchina di fare proprio quella cosa lì — guardare la griglia sgranata e riconoscere un tre — è un incubo.\n\nL'approccio classico, per decenni, è stato scrivere regole rigide. Si diceva alla macchina: «se c'è una curva in alto, e poi un'altra curva sotto, allora forse è un tre». Ma come definisci con una sequenza logica una cosa che cambia ogni volta? Prendi dieci persone e chiedi loro di scrivere il numero 3: lo scriveranno in dieci modi diversi.\n\nNon esiste un'unica regola «se… allora» buona per tutti. Finché non si decide di capovolgere completamente l'approccio.",
+      mediaUrl:'https://drive.google.com/file/d/1vpUls-G2vO8BfP40M2C4oxgIVhiNh3I0/view', opzioni:[], rispostaCorretta:'', feedbackEsatto:'', feedbackErrato:'' },
+    { id:4, tipo:'quiz', titolo:'Il computer e gli scacchi',
+      testo:'Secondo te, un computer è mai riuscito a battere un campione del mondo di scacchi?',
+      mediaUrl:'', opzioni:['Si','No'], rispostaCorretta:'si',
+      feedbackEsatto:'Esatto! Nel 1997 Deep Blue di IBM sconfisse Garry Kasparov, campione del mondo.',
+      feedbackErrato:'In realtà sì: nel 1997 Deep Blue di IBM sconfisse il campione del mondo Kasparov.' },
+    { id:5, tipo:'narrazione', titolo:'Deep Blue — forza bruta',
+      testo:"1997. Garry Kasparov, campione del mondo di scacchi, è sotto shock. Deep Blue, una macchina costruita da IBM, lo batte.\n\nMa attenzione: Deep Blue era un'intelligenza artificiale «vecchia maniera». Non aveva imparato nulla giocando. Era pura forza bruta: dentro ci avevano scritto a mano le regole degli scacchi, e le avevano dato un motore potentissimo per calcolare circa 200 milioni di mosse al secondo.\n\nDeep Blue giocava in modo divino — ma non sapeva fare nient'altro. Nemmeno la dama. Un genio chiuso e ultra-specializzato, tutto basato su regole ferree: «se… allora». Non ha niente a che vedere con l'Intelligenza Artificiale che conosciamo oggi.",
+      mediaUrl:'https://drive.google.com/file/d/123twQtiZB_SXSJydM3qhjuIQe9FfE0AI/view', opzioni:[], rispostaCorretta:'', feedbackEsatto:'', feedbackErrato:'' },
+    { id:6, tipo:'narrazione', titolo:'AlphaGo e il Go',
+      testo:"Facciamo un salto al 2016. Il sistema AlphaGo batte Lee Sedol, campione del mondo di Go. Il Go è un gioco da tavolo antico, e molto più complesso degli scacchi.\n\nQuanto più complesso? Le configurazioni possibili sul tavoliere del Go sono più numerose degli atomi nell'universo osservabile (10⁸⁰).",
+      mediaUrl:'https://drive.google.com/file/d/18Nc24QkcF97t1tq4nwM8urWaYXnOS7T1/view', opzioni:[], rispostaCorretta:'', feedbackEsatto:'', feedbackErrato:'' },
+    { id:7, tipo:'quiz', titolo:'Mosse del Go — possibile o no?',
+      testo:'Secondo te è possibile costruire una macchina inserendole a mano, una a una, tutte le mosse possibili del Go?',
+      mediaUrl:'', opzioni:['Si','No'], rispostaCorretta:'no',
+      feedbackEsatto:"Esatto! Le combinazioni superano gli atomi dell'universo: nessun computer potrebbe calcolarle tutte.",
+      feedbackErrato:"In realtà no: le combinazioni superano gli atomi dell'universo. È fisicamente impossibile." },
+    { id:8, tipo:'narrazione', titolo:'Impossibile con la forza bruta',
+      testo:"No, è impossibile. Non puoi scrivere a mano le regole, né usare la forza bruta, se le combinazioni sono più degli atomi dell'universo: un computer esploderebbe prima di averle calcolate tutte.\n\nE allora come ha fatto AlphaGo a battere il campione in carica?",
+      mediaUrl:'', opzioni:[], rispostaCorretta:'', feedbackEsatto:'', feedbackErrato:'' },
+    { id:9, tipo:'narrazione', titolo:'Il capovolgimento',
+      testo:"La risposta è sorprendente: nessun programmatore aveva scritto la strategia di AlphaGo. Nessuno aveva codificato le regole per vincere.\n\nIl sistema aveva imparato da solo, osservando milioni di partite e giocando contro se stesso un numero sterminato di volte.\n\nEcco il capovolgimento. Tra il 1997 e il 2016 succede qualcosa di enorme: si passa dallo scrivere regole a mano per ottenere un risultato al fornire montagne di esempi e di risultati, lasciando che sia la macchina a dedurre le regole da sola.\n\nÈ da questo seme che nasce tutto ciò di cui parleremo: Intelligenza Artificiale Generativa, Deep Learning, Large Language Model.",
+      mediaUrl:'https://drive.google.com/file/d/1inJH0ozas6Z7LsOlr5KH4w15uYw1ETc1/view', opzioni:[], rispostaCorretta:'', feedbackEsatto:'', feedbackErrato:'' }
+  ];
+
+  /* ── STATO ── */
+  var cards=[], currentIndex=0, renderedUpTo=-1;
+  var studentKey='', studentName='', studentEmail='';
+  var selezione={};
+
+  /* ── Ponte Apps Script (sicuro anche in anteprima) ── */
+  function inAppsScript(){ return (typeof google!=='undefined' && google.script && google.script.run); }
+  function gas(fn){
+    var args=Array.prototype.slice.call(arguments,1);
+    if(inAppsScript()){ try{ google.script.run[fn].apply(google.script.run,args); }catch(e){} }
+  }
+  function prefersReduced(){ try{ return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){ return false; } }
+
+  /* ── Storage con fallback in memoria ── */
+  var mem={};
+  function sGet(k){ try{ return localStorage.getItem(k); }catch(e){ return (k in mem)?mem[k]:null; } }
+  function sSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){ mem[k]=String(v); } }
+  function sDel(k){ try{ localStorage.removeItem(k); }catch(e){ delete mem[k]; } }
+
+  /* ── AVVIO ── */
+  window.onload=function(){
+    if(inAppsScript()){
+      google.script.run
+        .withSuccessHandler(function(d){ cards=(d&&d.length)?d:FALLBACK_CARDS; checkAuth(); })
+        .withFailureHandler(function(){ cards=FALLBACK_CARDS; checkAuth(); })
+        .getCardConfig();
+    } else { cards=FALLBACK_CARDS; checkAuth(); }
+  };
+
+  function checkAuth(){
+    var s=sGet('papiro_student');
+    if(s){ try{ var p=JSON.parse(s); studentKey=p.key; studentName=p.name; studentEmail=p.email; avviaCorso(); }catch(e){} }
+  }
+
+  function startPlatform(){
+    var nome=val('in-nome'), cognome=val('in-cognome'), email=val('in-email');
+    if(!nome||!cognome){ apriAlert('Inserisci nome e cognome per continuare.'); return; }
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ apriAlert('Inserisci un indirizzo email valido.'); return; }
+    studentKey=nome+' '+cognome; studentName=studentKey; studentEmail=email;
+    sSet('papiro_student', JSON.stringify({key:studentKey,name:studentName,email:studentEmail}));
+    gas('salvaStudente', studentName, studentEmail);
+    avviaCorso();
+  }
+
+  function avviaCorso(){
+    document.getElementById('auth').classList.add('hidden');
+    document.getElementById('app').classList.add('show');
+    document.getElementById('who').innerText=studentName;
+    var saved=parseInt(sGet('papiro_progress_'+studentKey),10);
+    currentIndex=(!isNaN(saved)&&saved>=0)?Math.min(saved,cards.length):0;
+    renderedUpTo=-1; document.getElementById('cards').innerHTML='';
+    renderSteps();
+    for(var i=0;i<=currentIndex&&i<cards.length;i++){ appendCard(i, i===currentIndex); renderedUpTo=i; }
+    if(currentIndex>=cards.length) showDone();
+    updateProgress();
+  }
+
+  function logout(){
+    sDel('papiro_student');
+    document.getElementById('app').classList.remove('show');
+    document.getElementById('auth').classList.remove('hidden');
+    ['in-nome','in-cognome','in-email'].forEach(function(id){ document.getElementById(id).value=''; });
+  }
+
+  /* ══ RAIL ══ */
+  function iconTipo(tipo){
+    if(tipo==='quiz'||tipo==='mappa_neurale'){
+      // punto interrogativo
+      return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.4-3 4"/><line x1="12" y1="17.4" x2="12" y2="17.5"/></svg>';
+    }
+    if(tipo==='video'){
+      return '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+    }
+    // fumetto (narrazione, testo, default)
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 21l2-5.5A8.5 8.5 0 1 1 21 11.5z"/></svg>';
+  }
+
+  function renderSteps(){
+    var nav=document.getElementById('steps'); nav.innerHTML='';
+    cards.forEach(function(card,i){
+      var state=(i<currentIndex)?'done':(i===currentIndex?'active':'locked');
+      var clickable=(i<=currentIndex&&i<cards.length);
+      var el=document.createElement('div');
+      el.className='step '+state+(clickable?' clickable':'');
+      el.innerHTML='<span class="marker">'+iconTipo(card.tipo)+'</span><span class="label">'+esc(card.titolo)+'</span>';
+      if(clickable){ el.onclick=(function(id){ return function(){ scrollToCard(id); }; })(card.id); }
+      nav.appendChild(el);
+    });
+  }
+
+  function updateProgress(){
+    var tot=cards.length, done=Math.min(currentIndex,tot), pct=tot?Math.round(done/tot*100):0;
+    document.getElementById('bar').style.width=pct+'%';
+    document.getElementById('prog').innerText=(currentIndex>=tot)?'Completato':('Passo '+(currentIndex+1)+' di '+tot);
+  }
+
+  /* ══ CARD ══ */
+  function appendCard(i,isActive){
+    var card=cards[i];
+    var div=document.createElement('div');
+    div.id='card-'+card.id; div.className='card'+(isActive?' enter':'');
+    div.innerHTML=buildCardHtml(card,isActive);
+    document.getElementById('cards').appendChild(div);
+    if(isActive){
+      if(card.tipo==='narrazione'){ streamNarrazione(card); }
+      setTimeout(function(){ scrollToCard(card.id); }, 80);
+    } else { finalizeStatic(card); }
+  }
+
+  function buildCardHtml(card,isActive){
+    switch(card.tipo){
+      case 'quiz':          return htmlQuiz(card,isActive);
+      case 'testo':         return htmlTesto(card,isActive);
+      case 'video':         return htmlVideo(card,isActive);
+      case 'mappa_neurale': return htmlMappa(card,isActive);
+      default:              return htmlNarrazione(card,isActive);
+    }
+  }
+
+  function header(card,label){ return '<p class="kind">'+label+'</p><h3>'+esc(card.titolo)+'</h3>'; }
+  function figure(card){
+    if(!card.mediaUrl||!card.mediaUrl.trim()) return '';
+    return '<div class="fig"><img src="'+driveUrl(card.mediaUrl)+'" alt="" '+
+           'onerror="this.parentNode.classList.add(\'fallback\');this.parentNode.innerHTML=&quot;<span>Illustrazione del passo</span>&quot;;"></div>';
+  }
+
+  function htmlNarrazione(card,isActive){
+    var h=header(card,'Narrazione')+figure(card);
+    if(isActive){
+      h+='<div class="prose" id="prose-'+card.id+'"></div>';
+      h+='<div class="card-actions pending" id="act-'+card.id+'"><button class="btn" onclick="prosegui('+card.id+')">Prosegui</button></div>';
+    } else {
+      h+='<div class="prose">'+card.testo+'</div>';
+    }
+    return h;
+  }
+
+  function htmlQuiz(card,isActive){
+    var h=header(card,'Domanda')+'<p class="question">'+esc(card.testo)+'</p>';
+    h+='<div class="options" id="opts-'+card.id+'">';
+    (card.opzioni||[]).forEach(function(opz,oi){
+      h+='<button type="button" class="opt" id="opt-'+card.id+'-'+oi+'" '+
+         (isActive?'onclick="seleziona('+card.id+','+oi+')"':'disabled')+'>'+
+         '<span class="tick">'+checkSvg()+'</span>'+esc(opz)+'</button>';
+    });
+    h+='</div>';
+    if(isActive){ h+='<div class="card-actions"><button class="btn" id="btn-'+card.id+'" onclick="verificaQuiz('+card.id+')">Verifica la risposta</button></div>'; }
+    h+=feedbackBox(card.id);
+    return h;
+  }
+
+  function htmlTesto(card,isActive){
+    var h=header(card,'Rispondi')+'<p class="question">'+esc(card.testo)+'</p>';
+    h+='<input type="text" class="text-input" id="txt-'+card.id+'" placeholder="Scrivi la tua risposta…" '+(isActive?'':'disabled')+'>';
+    if(isActive){ h+='<div class="card-actions"><button class="btn" onclick="verificaTesto('+card.id+')">Verifica la risposta</button></div>'; }
+    h+=feedbackBox(card.id);
+    return h;
+  }
+
+  function htmlVideo(card,isActive){
+    var h=header(card,'Video')+'<p class="question">'+esc(card.testo)+'</p>';
+    if(card.mediaUrl){
+      h+='<div class="fig" style="position:relative;padding-bottom:56.25%;height:0;"><iframe src="'+esc(card.mediaUrl)+'" style="position:absolute;inset:0;width:100%;height:100%;border:0;" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture" allowfullscreen></iframe></div>';
+    }
+    if(isActive){ h+='<div class="card-actions"><button class="btn" onclick="prosegui('+card.id+')">Prosegui</button></div>'; }
+    return h;
+  }
+
+  function htmlMappa(card,isActive){
+    var h=header(card,'Esplora')+'<p class="question">'+esc(card.testo)+'</p>';
+    var dis=isActive?'':'disabled';
+    h+='<div class="options">'+
+       '<button class="opt" '+dis+' onclick="verificaMappa('+card.id+',\'input\')"><span class="tick">'+checkSvg()+'</span>Nodi di input</button>'+
+       '<button class="opt" '+dis+' onclick="verificaMappa('+card.id+',\'hidden\')"><span class="tick">'+checkSvg()+'</span>Livello nascosto</button>'+
+       '<button class="opt" '+dis+' onclick="verificaMappa('+card.id+',\'output\')"><span class="tick">'+checkSvg()+'</span>Nodo di output</button></div>';
+    h+=feedbackBox(card.id);
+    return h;
+  }
+
+  /* ══ TESTO CHE SCORRE ══ */
+  function streamNarrazione(card){
+    var host=document.getElementById('prose-'+card.id);
+    var actions=document.getElementById('act-'+card.id);
+    if(!host) return;
+
+    function reveal(){ if(actions){ actions.classList.remove('pending'); actions.classList.add('reveal'); } }
+
+    // Renderizza l'HTML nella sua forma definitiva
+    host.innerHTML=card.testo;
+
+    if(prefersReduced()){ reveal(); return; }
+
+    // Raccoglie tutte le parole nei nodi testo del DOM renderizzato
+    // e le sostituisce con <span class="w"> per l'animazione,
+    // preservando intatti i tag HTML (strong, em, p, span…)
+    var wordSpans=[];
+    function wrapTextNode(node){
+      if(node.nodeType===3){
+        var txt=node.textContent;
+        if(!txt.trim()) return;
+        var frag=document.createDocumentFragment();
+        txt.split(/(\s+)/).forEach(function(part){
+          if(!part) return;
+          if(/^\s+$/.test(part)){ frag.appendChild(document.createTextNode(part)); return; }
+          var sp=document.createElement('span');
+          sp.className='w'; sp.style.opacity='0'; sp.textContent=part;
+          wordSpans.push(sp); frag.appendChild(sp);
+        });
+        node.parentNode.replaceChild(frag,node);
+      } else if(node.nodeType===1){
+        Array.prototype.slice.call(node.childNodes).forEach(wrapTextNode);
+      }
+    }
+    wrapTextNode(host);
+
+    var i=0, timer=null;
+    function finishAll(){
+      if(timer) clearTimeout(timer);
+      wordSpans.forEach(function(s){ s.style.opacity='1'; s.style.animation='none'; });
+      host.onclick=null; reveal();
+    }
+    function step(){
+      if(i>=wordSpans.length){ finishAll(); return; }
+      wordSpans[i].style.animation='fadeWord .26s ease forwards';
+      i++; timer=setTimeout(step,VELOCITA_TESTO);
+    }
+    host.onclick=finishAll;   // clic per saltare l'animazione
+    step();
+  }
+
+  /* ══ INTERAZIONI ══ */
+  function seleziona(id,oi){
+    var box=document.getElementById('opts-'+id);
+    Array.prototype.forEach.call(box.querySelectorAll('.opt'),function(o){ o.classList.remove('selected'); });
+    document.getElementById('opt-'+id+'-'+oi).classList.add('selected');
+    selezione[id]=getCard(id).opzioni[oi];
+  }
+
+  function verificaQuiz(id){
+    var card=getCard(id), scelta=selezione[id];
+    if(!scelta){ apriAlert('Seleziona una risposta prima di verificare.'); return; }
+    var corretta=(scelta.toLowerCase().trim()===String(card.rispostaCorretta).toLowerCase().trim());
+    var opts=document.getElementById('opts-'+id).querySelectorAll('.opt');
+    gas('salvaRispostaInSheet', studentName, id, card.titolo, scelta, corretta?'CORRETTO':'ERRATO');
+    if(corretta){
+      Array.prototype.forEach.call(opts,function(o){ o.disabled=true; o.classList.remove('selected'); });
+      (card.opzioni||[]).forEach(function(opz,oi){ if(opz.toLowerCase().trim()===String(card.rispostaCorretta).toLowerCase().trim()) document.getElementById('opt-'+id+'-'+oi).classList.add('correct'); });
+      var b=document.getElementById('btn-'+id); if(b) b.disabled=true;
+      mostraFeedback(id,true,card.feedbackEsatto);
+      setTimeout(function(){ prosegui(id); },1300);
+    } else {
+      (card.opzioni||[]).forEach(function(opz,oi){ if(opz===scelta) document.getElementById('opt-'+id+'-'+oi).classList.add('wrong'); });
+      mostraFeedback(id,false,card.feedbackErrato);
+      setTimeout(function(){ (card.opzioni||[]).forEach(function(opz,oi){ document.getElementById('opt-'+id+'-'+oi).classList.remove('wrong','selected'); }); selezione[id]=null; },1600);
+    }
+  }
+
+  function verificaTesto(id){
+    var card=getCard(id), risposta=(document.getElementById('txt-'+id).value||'').trim();
+    if(!risposta){ apriAlert('Scrivi una risposta prima di verificare.'); return; }
+    var corretta=(risposta.toLowerCase()===String(card.rispostaCorretta).toLowerCase().trim());
+    gas('salvaRispostaInSheet', studentName, id, card.titolo, risposta, corretta?'CORRETTO':'ERRATO');
+    if(corretta){ document.getElementById('txt-'+id).disabled=true; mostraFeedback(id,true,card.feedbackEsatto); setTimeout(function(){ prosegui(id); },1200); }
+    else { mostraFeedback(id,false,card.feedbackErrato); }
+  }
+
+  function verificaMappa(id,clic){
+    var card=getCard(id), corretta=(clic===String(card.rispostaCorretta).toLowerCase().trim());
+    gas('salvaRispostaInSheet', studentName, id, card.titolo, clic, corretta?'CORRETTO':'ERRATO');
+    if(corretta){ mostraFeedback(id,true,card.feedbackEsatto); setTimeout(function(){ prosegui(id); },1200); }
+    else { mostraFeedback(id,false,card.feedbackErrato); }
+  }
+
+  function prosegui(id){
+    var card=getCard(id);
+    if(card.tipo==='narrazione'||card.tipo==='video') gas('salvaRispostaInSheet', studentName, id, card.titolo, 'prosegui', 'OK');
+    avanza();
+  }
+
+  /* ══ AVANZAMENTO ══ */
+  function avanza(){
+    finalizeActive();
+    currentIndex++;
+    sSet('papiro_progress_'+studentKey,currentIndex);
+    renderSteps(); updateProgress();
+    if(currentIndex<cards.length){ appendCard(currentIndex,true); renderedUpTo=currentIndex; }
+    else showDone();
+  }
+
+  function finalizeActive(){
+    if(currentIndex<0||currentIndex>=cards.length) return;
+    var el=document.getElementById('card-'+cards[currentIndex].id); if(!el) return;
+    Array.prototype.forEach.call(el.querySelectorAll('button.btn, .opt, input'),function(b){ b.disabled=true; });
+  }
+
+  function finalizeStatic(card){
+    if(card.tipo==='quiz'){
+      (card.opzioni||[]).forEach(function(opz,oi){ var o=document.getElementById('opt-'+card.id+'-'+oi); if(o&&opz.toLowerCase().trim()===String(card.rispostaCorretta).toLowerCase().trim()) o.classList.add('correct'); });
+      mostraFeedback(card.id,true,card.feedbackEsatto);
+    } else if(card.tipo==='testo'){
+      var inp=document.getElementById('txt-'+card.id); if(inp) inp.value=card.rispostaCorretta;
+      mostraFeedback(card.id,true,card.feedbackEsatto);
+    } else if(card.tipo==='mappa_neurale'){
+      mostraFeedback(card.id,true,card.feedbackEsatto);
+    }
+  }
+
+  function showDone(){
+    var div=document.createElement('div'); div.className='done-screen enter';
+    div.innerHTML='<div class="seal">'+checkSvg(22)+'</div><h3>Modulo completato</h3>'+
+      '<p>Ottimo lavoro! Ora puoi proseguire con il modulo 2</p>';
+    document.getElementById('cards').appendChild(div);
+    setTimeout(function(){ div.scrollIntoView({behavior:'smooth',block:'center'}); },80);
+
+    // invia l'email finale una sola volta
+    if(!sGet('papiro_done_'+studentKey)){
+      sSet('papiro_done_'+studentKey,'1');
+      gas('inviaRisultatiFinali', studentName, studentEmail);
+    }
+  }
+
+  /* ══ FEEDBACK / UTILITÀ ══ */
+  function feedbackBox(id){ return '<div class="feedback" id="fb-'+id+'"></div>'; }
+  function mostraFeedback(id,ok,testo){ var el=document.getElementById('fb-'+id); if(!el||!testo) return; el.className='feedback show '+(ok?'ok':'ko'); el.innerText=testo; }
+  function getCard(id){ return cards.filter(function(c){ return c.id===id; })[0]; }
+  function val(id){ return (document.getElementById(id).value||'').trim(); }
+  function scrollToCard(id){ var el=document.getElementById('card-'+id); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); }
+  function paragrafi(t){ if(!t) return ''; return String(t).split(/\n\s*\n/).map(function(p){ return '<p>'+esc(p.trim()).replace(/\n/g,'<br>')+'</p>'; }).join(''); }
+  function driveUrl(url){ if(!url) return ''; var id='', m=url.match(/\/file\/d\/([^/?]+)/); if(m) id=m[1]; if(!id){ var m2=url.match(/[?&]id=([^&]+)/); if(m2) id=m2[1]; } if(!id) return url; return 'https://drive.google.com/thumbnail?id='+id+'&sz=w1400'; }
+  function checkSvg(s){ s=s||11; return '<svg width="'+s+'" height="'+s+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>'; }
+  function esc(s){ if(s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function apriAlert(m){ document.getElementById('alert-text').innerText=m; document.getElementById('alert').classList.remove('hidden'); }
+  function chiudiAlert(){ document.getElementById('alert').classList.add('hidden'); }
+  </script>
+</body>
+</html>
