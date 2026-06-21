@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --accent:#5B5BD6; --accent-soft:#EDEBFB; --accent-700:#4A4AC0;
+      --ok:#16A06A; --ok-soft:#E6F6EE; --ko:#E05656; --ko-soft:#FCECEC;
+      --paper:#FAF8F4; --surface:#fff; --ink:#1E1B2E; --ink-soft:#5A5670; --hair:#E7E3DC;
+      --font-display:'Quicksand',sans-serif; --font-body:'Roboto',sans-serif;
+    }
+    *{ box-sizing:border-box; }
+    body{ margin:0; font-family:var(--font-body); font-weight:300; background:var(--paper); color:var(--ink); padding:22px; }
+    h1{ font-family:var(--font-display); font-weight:700; font-size:1.5rem; margin:0; }
+    h2{ font-family:var(--font-display); font-weight:700; font-size:1.05rem; margin:30px 0 14px; color:var(--ink); }
+    .sub{ color:var(--ink-soft); font-size:.9rem; margin:4px 0 0; }
+    .head{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
+    .btn{ border:none; background:var(--accent); color:#fff; font-family:inherit; font-weight:700; font-size:.85rem; padding:10px 18px; border-radius:11px; cursor:pointer; }
+    .btn:hover{ background:var(--accent-700); }
+    .kpis{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:18px; }
+    .kpi{ background:var(--surface); border:1px solid var(--hair); border-radius:16px; padding:18px 20px; display:flex; align-items:center; gap:16px; }
+    .kpi .num{ font-family:var(--font-display); font-weight:700; font-size:1.9rem; line-height:1; }
+    .kpi .lab{ color:var(--ink-soft); font-size:.82rem; margin-top:4px; }
+    .qcard{ background:var(--surface); border:1px solid var(--hair); border-radius:16px; padding:20px 22px; margin-bottom:14px; display:flex; gap:22px; align-items:flex-start; }
+    .qcard .donut-wrap{ flex:0 0 auto; text-align:center; }
+    .qcard .qbody{ flex:1; min-width:0; }
+    .qtag{ display:inline-block; font-size:.66rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); background:var(--accent-soft); padding:3px 9px; border-radius:999px; margin-bottom:8px; }
+    .qtext{ font-weight:400; font-size:1rem; margin:0 0 14px; line-height:1.4; }
+    .bar-row{ display:flex; align-items:center; gap:10px; margin-bottom:9px; font-size:.9rem; }
+    .bar-lab{ flex:0 0 42%; display:flex; align-items:center; gap:7px; }
+    .bar-lab .corr{ color:var(--ok); font-weight:700; flex:0 0 auto; }
+    .bar-track{ flex:1; background:#F0EEEA; border-radius:999px; height:22px; overflow:hidden; }
+    .bar-fill{ height:100%; border-radius:999px; background:var(--accent); min-width:2px; transition:width .5s ease; }
+    .bar-fill.ok{ background:var(--ok); }
+    .bar-val{ flex:0 0 auto; font-weight:600; font-size:.82rem; color:var(--ink-soft); width:74px; text-align:right; }
+    .muted{ color:var(--ink-soft); font-size:.85rem; }
+    .open-list{ margin:6px 0 0; padding:0; list-style:none; }
+    .open-list li{ padding:8px 12px; background:var(--paper); border:1px solid var(--hair); border-radius:10px; margin-bottom:6px; font-size:.88rem; }
+    .open-list li b{ color:var(--accent-700); font-weight:600; }
+    .stud-row{ display:flex; align-items:center; gap:12px; margin-bottom:8px; font-size:.9rem; }
+    .stud-name{ flex:0 0 28%; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .stud-track{ flex:1; background:#F0EEEA; border-radius:999px; height:18px; overflow:hidden; }
+    .stud-fill{ height:100%; background:linear-gradient(90deg,var(--accent),#7B7BE0); border-radius:999px; }
+    .stud-meta{ flex:0 0 auto; width:160px; text-align:right; font-size:.8rem; color:var(--ink-soft); }
+    .pill-ok{ color:var(--ok); font-weight:700; } .pill-ko{ color:var(--ko); font-weight:700; }
+    .empty{ text-align:center; color:var(--ink-soft); padding:50px; }
+    .loading{ text-align:center; color:var(--ink-soft); padding:60px; }
+    .donut-num{ font-family:var(--font-display); font-weight:700; font-size:1.05rem; fill:var(--ink); }
+    .donut-cap{ font-size:.72rem; color:var(--ink-soft); margin-top:2px; }
+  </style>
+</head>
+<body>
+  <div id="root"><div class="loading">Carico le statistiche…</div></div>
+
+  <script>
+    function donut(pct, color, size){
+      size=size||92; var sw=11, r=(size-sw)/2, c=2*Math.PI*r, off=c*(1-pct/100);
+      return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'">'+
+        '<circle cx="'+size/2+'" cy="'+size/2+'" r="'+r+'" fill="none" stroke="#F0EEEA" stroke-width="'+sw+'"/>'+
+        '<circle cx="'+size/2+'" cy="'+size/2+'" r="'+r+'" fill="none" stroke="'+color+'" stroke-width="'+sw+'" '+
+          'stroke-linecap="round" stroke-dasharray="'+c+'" stroke-dashoffset="'+off+'" '+
+          'transform="rotate(-90 '+size/2+' '+size/2+')"/>'+
+        '<text x="50%" y="50%" text-anchor="middle" dy=".35em" class="donut-num">'+pct+'%</text>'+
+      '</svg>';
+    }
+    function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    function colorPct(p){ return p>=70?'var(--ok)':(p>=40?'var(--accent)':'var(--ko)'); }
+
+    function render(d){
+      if(!d.risposteTotali){
+        document.getElementById('root').innerHTML='<div class="head"><div><h1>Dashboard</h1>'+
+          '<p class="sub">'+esc(d.titolo)+'</p></div><button class="btn" onclick="carica()">↻ Aggiorna</button></div>'+
+          '<div class="empty">Ancora nessuna risposta registrata.<br>Quando gli studenti risponderanno, qui vedrai i grafici.</div>';
+        return;
+      }
+      var h='<div class="head"><div><h1>Dashboard</h1><p class="sub">'+esc(d.titolo)+'</p></div>'+
+        '<button class="btn" onclick="carica()">↻ Aggiorna</button></div>';
+
+      // KPI
+      h+='<div class="kpis">'+
+        '<div class="kpi"><div><div class="num">'+d.studentiTotali+'</div><div class="lab">Studenti</div></div></div>'+
+        '<div class="kpi"><div><div class="num">'+d.risposteTotali+'</div><div class="lab">Risposte totali</div></div></div>'+
+        '<div class="kpi">'+donut(d.pctGlobale, colorPct(d.pctGlobale), 70)+'<div><div class="lab">Risposte corrette<br>(sul totale valutate)</div></div></div>'+
+      '</div>';
+
+      // Per domanda
+      h+='<h2>Andamento per domanda</h2>';
+      if(!d.domande.length) h+='<p class="muted">Nessuna domanda con risposte.</p>';
+      d.domande.forEach(function(q){
+        var tag={quiz:'Risposta multipla',aperta:'Domanda aperta',completamento:'Completamento'}[q.tipo]||q.tipo;
+        h+='<div class="qcard">';
+        if(q.tipo!=='aperta'){
+          h+='<div class="donut-wrap">'+donut(q.pctCorrette, colorPct(q.pctCorrette))+
+             '<div class="donut-cap">corrette</div></div>';
+        }
+        h+='<div class="qbody"><span class="qtag">'+tag+'</span>'+
+           '<p class="qtext">'+esc(q.testo)+'</p>';
+        if(q.tipo==='quiz'){
+          if(!q.totale){ h+='<p class="muted">Nessuna risposta ancora.</p>'; }
+          q.opzioni.forEach(function(o){
+            h+='<div class="bar-row">'+
+              '<div class="bar-lab">'+(o.corretta?'<span class="corr">✓</span>':'')+'<span>'+esc(o.testo)+'</span></div>'+
+              '<div class="bar-track"><div class="bar-fill'+(o.corretta?' ok':'')+'" style="width:'+o.pct+'%"></div></div>'+
+              '<div class="bar-val">'+o.count+' · '+o.pct+'%</div>'+
+            '</div>';
+          });
+          h+='<p class="muted" style="margin-top:10px;">'+q.totale+' risposte · '+q.corrette+' corrette</p>';
+        } else if(q.tipo==='completamento'){
+          h+='<p class="muted">'+q.corrette+' completate correttamente su '+q.totale+'</p>';
+        } else { // aperta
+          h+='<p class="muted">'+q.aperte.length+' risposte ricevute</p>';
+          if(q.aperte.length){
+            h+='<ul class="open-list">';
+            q.aperte.forEach(function(a){ h+='<li><b>'+esc(a.studente)+':</b> '+esc(a.risposta)+'</li>'; });
+            h+='</ul>';
+          }
+        }
+        h+='</div></div>';
+      });
+
+      // Per studente
+      h+='<h2>Andamento per studente</h2>';
+      if(!d.studenti.length) h+='<p class="muted">Nessuno studente ancora.</p>';
+      d.studenti.forEach(function(s){
+        h+='<div class="stud-row">'+
+          '<div class="stud-name">'+esc(s.nome)+'</div>'+
+          '<div class="stud-track"><div class="stud-fill" style="width:'+s.pct+'%"></div></div>'+
+          '<div class="stud-meta"><span class="pill-ok">'+s.ok+' ✓</span> · <span class="pill-ko">'+s.ko+' ✕</span>'+
+            (s.ap?(' · '+s.ap+' aperte'):'')+' · '+s.pct+'%</div>'+
+        '</div>';
+      });
+
+      document.getElementById('root').innerHTML=h;
+    }
+
+    function carica(){
+      document.getElementById('root').innerHTML='<div class="loading">Carico le statistiche…</div>';
+      google.script.run
+        .withSuccessHandler(render)
+        .withFailureHandler(function(e){ document.getElementById('root').innerHTML='<div class="empty">Errore nel caricamento: '+esc(e.message)+'</div>'; })
+        .getStatistiche();
+    }
+    carica();
+  </script>
+</body>
+</html>

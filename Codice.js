@@ -19,7 +19,15 @@ function onOpen() {
     .addSeparator()
     .addItem('📊 Aggiorna riepilogo studenti', 'generaRiepilogoStudenti')
     .addItem('📊 Aggiorna riepilogo per domanda', 'generaRiepilogoDomande')
+    .addItem('📈 Dashboard grafica', 'mostraDashboard')
     .addToUi();
+}
+
+function mostraDashboard() {
+  var html = HtmlService.createHtmlOutputFromFile('Dashboard')
+    .setWidth(1100)
+    .setHeight(800);
+  SpreadsheetApp.getUi().showModalDialog(html, 'Dashboard — Corso IA');
 }
 
 function mostraGestione() {
@@ -346,6 +354,64 @@ function salvaStudente(nome, email) {
   }
   sheet.appendRow([new Date(), nome, email]);
   return 'OK';
+}
+
+/* Dati aggregati per la dashboard grafica */
+function getStatistiche() {
+  var cards = getCardConfig();
+  var risp = _risposte();
+  var byId = {};
+  risp.forEach(function (r) { (byId[r.id] = byId[r.id] || []).push(r); });
+
+  var studentiSet = {};
+  risp.forEach(function (r) { studentiSet[r.studente] = true; });
+
+  var domande = [];
+  cards.forEach(function (c) {
+    if (['quiz', 'aperta', 'completamento'].indexOf(c.tipo) === -1) return;
+    var lista = byId[c.id] || [];
+    var tot = lista.length;
+    var ok = lista.filter(function (r) { return r.esito === 'CORRETTO'; }).length;
+    var d = {
+      id: c.id, tipo: c.tipo, testo: _plain(c.testo),
+      totale: tot, corrette: ok, pctCorrette: tot ? Math.round(ok / tot * 100) : 0,
+      opzioni: [], aperte: []
+    };
+    if (c.tipo === 'quiz') {
+      (c.opzioni || []).forEach(function (opz) {
+        var n = lista.filter(function (r) { return r.risposta.toLowerCase().trim() === opz.toLowerCase().trim(); }).length;
+        d.opzioni.push({ testo: opz, count: n, pct: tot ? Math.round(n / tot * 100) : 0,
+          corretta: opz.toLowerCase().trim() === String(c.rispostaCorretta).toLowerCase().trim() });
+      });
+    } else if (c.tipo === 'aperta') {
+      d.aperte = lista.slice(0, 100).map(function (r) { return { studente: r.studente, risposta: r.risposta }; });
+    }
+    domande.push(d);
+  });
+
+  var per = {};
+  risp.forEach(function (r) {
+    if (!per[r.studente]) per[r.studente] = { ok: 0, ko: 0, ap: 0 };
+    if (r.esito === 'CORRETTO') per[r.studente].ok++;
+    else if (r.esito === 'ERRATO') per[r.studente].ko++;
+    else per[r.studente].ap++;
+  });
+  var studenti = Object.keys(per).sort().map(function (s) {
+    var p = per[s], val = p.ok + p.ko;
+    return { nome: s, ok: p.ok, ko: p.ko, ap: p.ap, pct: val ? Math.round(p.ok / val * 100) : 0 };
+  });
+
+  var totOk = 0, totVal = 0;
+  studenti.forEach(function (s) { totOk += s.ok; totVal += s.ok + s.ko; });
+
+  return {
+    studentiTotali: Object.keys(studentiSet).length,
+    risposteTotali: risp.length,
+    pctGlobale: totVal ? Math.round(totOk / totVal * 100) : 0,
+    titolo: getTitoloModulo(),
+    domande: domande,
+    studenti: studenti
+  };
 }
 
 /* ── SALVA RISPOSTA ─────────────────────────────────── */

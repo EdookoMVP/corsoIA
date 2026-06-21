@@ -119,6 +119,8 @@
     .reader{ height:100vh; overflow-y:auto; }
     .reader-inner{ max-width:720px; margin:0 auto; padding:30px 28px 130px; }
     .topbar{ position:sticky; top:0; z-index:5; background:linear-gradient(var(--paper) 70%, rgba(250,248,244,0)); padding:8px 0 16px; margin-bottom:6px; display:flex; align-items:center; gap:14px; }
+    .topbar-exit{ display:none; flex:0 0 auto; border:1px solid var(--hair); background:#fff; color:var(--ink-soft); font-family:inherit; font-size:.82rem; font-weight:600; padding:7px 14px; border-radius:999px; cursor:pointer; }
+    .topbar-exit:hover{ background:var(--accent-soft); color:var(--accent); }
     .progress{ flex:1; height:6px; border-radius:99px; background:var(--hair); overflow:hidden; }
     .progress > i{ display:block; height:100%; width:0; background:var(--accent); border-radius:99px; transition:width .4s ease; }
     .progress-label{ font-size:.78rem; font-weight:700; color:var(--muted); white-space:nowrap; }
@@ -229,6 +231,7 @@
       .card{ padding:20px 16px; border-radius:14px; }
       :root{ --size-title:1.22rem; --size-body:1.04rem; --size-question:1.04rem; }
       .topbar{ padding:10px 0 14px; }
+      .topbar-exit{ display:inline-block; }
       .auth-card{ padding:32px 22px; }
       .fig img{ max-height:300px; }
       .prose figure.cardmedia img{ max-height:260px; }
@@ -283,6 +286,7 @@
         <div class="topbar">
           <div class="progress"><i id="bar"></i></div>
           <span class="progress-label" id="prog"></span>
+          <button class="topbar-exit" onclick="logout()" title="Esci">Esci</button>
         </div>
         <div id="cards"></div>
       </div>
