@@ -16,6 +16,9 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('📚 Corso IA')
     .addItem('Gestione Card', 'mostraGestione')
+    .addSeparator()
+    .addItem('📊 Aggiorna riepilogo studenti', 'generaRiepilogoStudenti')
+    .addItem('📊 Aggiorna riepilogo per domanda', 'generaRiepilogoDomande')
     .addToUi();
 }
 
@@ -356,5 +359,115 @@ function salvaRispostaInSheet(studente, idCard, titoloCard, rispostaData, esito)
     sheet.getRange(1, 1, 1, 6).setFontWeight('bold');
   }
   sheet.appendRow([new Date(), studente, idCard, titoloCard, rispostaData, esito]);
+  // aggiorna i riepiloghi con i nuovi dati (senza bloccare il salvataggio)
+  try { generaRiepiloghi(); } catch (e) {}
   return 'OK';
+}
+
+/* ══════════════════════════════════════════════════════
+   RIEPILOGHI (per l'educatore) — menu "📚 Corso IA"
+   ══════════════════════════════════════════════════════ */
+
+/* Chiamata a fine modulo dall'app studente.
+   I risultati del singolo studente sono già nel foglio "Risposte" e nei riepiloghi. */
+function inviaRisultatiFinali(nome, email) {
+  try { generaRiepiloghi(); } catch (e) {}
+  return 'OK';
+}
+
+function generaRiepiloghi() {
+  generaRiepilogoStudenti();
+  generaRiepilogoDomande();
+}
+
+function _plain(html) {
+  return String(html || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&').replace(/\[[^\]]*\]/g, '___').replace(/\s+/g, ' ').trim();
+}
+function _risposte() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Risposte');
+  if (!sheet) return [];
+  var d = sheet.getDataRange().getValues();
+  var out = [];
+  for (var i = 1; i < d.length; i++) {
+    if (d[i][1] === '' || d[i][1] == null) continue;
+    out.push({ studente: String(d[i][1]), id: parseInt(d[i][2], 10), risposta: String(d[i][4] || ''), esito: String(d[i][5] || '') });
+  }
+  return out;
+}
+function _mappaCard() {
+  var m = {};
+  getCardConfig().forEach(function (c) { m[c.id] = c; });
+  return m;
+}
+
+/* Tabella: una riga per studente con corrette / sbagliate / aperte / % */
+function generaRiepilogoStudenti() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName('Riepilogo Studenti') || ss.insertSheet('Riepilogo Studenti');
+  sh.clear();
+  var risp = _risposte();
+  var per = {}; // studente -> {ok, ko, ap}
+  risp.forEach(function (r) {
+    if (!per[r.studente]) per[r.studente] = { ok: 0, ko: 0, ap: 0 };
+    if (r.esito === 'CORRETTO') per[r.studente].ok++;
+    else if (r.esito === 'ERRATO') per[r.studente].ko++;
+    else per[r.studente].ap++;
+  });
+  var rows = [['Studente', 'Corrette', 'Sbagliate', 'Aperte', 'Totale valutate', '% corrette']];
+  Object.keys(per).sort().forEach(function (s) {
+    var p = per[s], val = p.ok + p.ko;
+    var pct = val ? Math.round(p.ok / val * 100) + '%' : '—';
+    rows.push([s, p.ok, p.ko, p.ap, val, pct]);
+  });
+  if (rows.length === 1) rows.push(['(nessuna risposta ancora)', '', '', '', '', '']);
+  sh.getRange(1, 1, rows.length, 6).setValues(rows);
+  sh.getRange(1, 1, 1, 6).setFontWeight('bold').setBackground('#EDEBFB');
+  sh.setColumnWidth(1, 220);
+  sh.setFrozenRows(1);
+}
+
+/* Stile Moduli Google: per ogni domanda, conteggio risposte per opzione + % corrette */
+function generaRiepilogoDomande() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName('Riepilogo Domande') || ss.insertSheet('Riepilogo Domande');
+  sh.clear();
+  var cards = getCardConfig();
+  var risp = _risposte();
+  var byId = {};
+  risp.forEach(function (r) { (byId[r.id] = byId[r.id] || []).push(r); });
+
+  var out = [['RIEPILOGO RISPOSTE PER DOMANDA', '', '']];
+  var bold = [0];
+  cards.forEach(function (c) {
+    if (['quiz', 'aperta', 'completamento'].indexOf(c.tipo) === -1) return;
+    var lista = byId[c.id] || [];
+    out.push(['', '', '']);
+    bold.push(out.length);
+    out.push(['D' + c.id + ' · ' + _plain(c.testo), '', '']);
+
+    if (c.tipo === 'quiz') {
+      var tot = lista.length;
+      (c.opzioni || []).forEach(function (opz) {
+        var n = lista.filter(function (r) { return r.risposta.toLowerCase().trim() === opz.toLowerCase().trim(); }).length;
+        var pct = tot ? Math.round(n / tot * 100) + '%' : '0%';
+        var segno = (opz.toLowerCase().trim() === String(c.rispostaCorretta).toLowerCase().trim()) ? '  ✓ corretta' : '';
+        out.push(['   ' + opz + segno, n, pct]);
+      });
+      var ok = lista.filter(function (r) { return r.esito === 'CORRETTO'; }).length;
+      out.push(['   → risposte totali: ' + tot + ' · corrette: ' + ok + (tot ? ' (' + Math.round(ok / tot * 100) + '%)' : ''), '', '']);
+    } else if (c.tipo === 'completamento') {
+      var ok2 = lista.filter(function (r) { return r.esito === 'CORRETTO'; }).length;
+      out.push(['   completate correttamente: ' + ok2 + ' su ' + lista.length, '', '']);
+    } else { // aperta
+      out.push(['   risposte ricevute: ' + lista.length, '', '']);
+      lista.slice(0, 50).forEach(function (r) { out.push(['   • ' + r.studente + ': ' + r.risposta, '', '']); });
+    }
+  });
+  if (out.length === 1) out.push(['(nessuna domanda con risposte ancora)', '', '']);
+  sh.getRange(1, 1, out.length, 3).setValues(out);
+  bold.forEach(function (i) { sh.getRange(i + 1, 1, 1, 3).setFontWeight('bold'); });
+  sh.getRange(1, 1, 1, 3).setBackground('#EDEBFB');
+  sh.setColumnWidth(1, 520); sh.setColumnWidth(2, 90); sh.setColumnWidth(3, 90);
+  sh.setFrozenRows(1);
 }
