@@ -226,7 +226,7 @@
     @media (max-width:880px){
       #app.show{ grid-template-columns:1fr; }
       .rail{ display:none; }
-      .reader{ height:auto; }
+      .reader{ height:100vh; overflow-y:auto; -webkit-overflow-scrolling:touch; }
       .reader-inner{ padding:16px 14px 90px; }
       .card{ padding:20px 16px; border-radius:14px; }
       :root{ --size-title:1.22rem; --size-body:1.04rem; --size-question:1.04rem; }
@@ -880,13 +880,19 @@
   /* Trasforma i blocchi video (figure[data-type=video]) in iframe dentro un contenitore */
   function renderMediaBlocks(root){
     if(!root) return;
-    // immagini: converti ogni URL Drive nel formato affidabile lh3 e gestisci eventuali errori
+    // immagini Drive: prova lh3 → thumbnail → uc (massimizza la resa sui file pubblici)
     Array.prototype.slice.call(root.querySelectorAll('img')).forEach(function(img){
       var s=img.getAttribute('src')||'';
       var id=driveIdFrom(s);
-      if(id) img.setAttribute('src','https://lh3.googleusercontent.com/d/'+id+'=w1400');
+      if(id){ img.setAttribute('data-drive', id); img.setAttribute('src','https://lh3.googleusercontent.com/d/'+id+'=w1400'); }
       img.setAttribute('loading','lazy');
-      img.onerror=function(){ this.style.display='none'; };
+      img.onerror=function(){
+        var did=this.getAttribute('data-drive'); if(!did){ this.style.display='none'; return; }
+        var t=this.getAttribute('data-try')||'0';
+        if(t==='0'){ this.setAttribute('data-try','1'); this.src='https://drive.google.com/thumbnail?id='+did+'&sz=w1400'; }
+        else if(t==='1'){ this.setAttribute('data-try','2'); this.src='https://drive.google.com/uc?export=view&id='+did; }
+        else { this.style.display='none'; }
+      };
     });
     Array.prototype.slice.call(root.querySelectorAll('figure.cardmedia[data-type="video"]')).forEach(function(fig){
       if(fig.querySelector('iframe')) return;
