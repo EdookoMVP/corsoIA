@@ -133,8 +133,15 @@
           <button type="button" data-cmd="createLink" title="Inserisci link">🔗 Link</button>
           <button type="button" onclick="inserisciMedia('image')" title="Inserisci immagine nel punto del cursore">🖼 Immagine</button>
           <button type="button" onclick="inserisciMedia('video')" title="Inserisci video nel punto del cursore">🎬 Video</button>
-          <button type="button" data-cmd="removeFormat" title="Rimuovi formattazione">✕ Pulisci</button>
+          <span class="sep"></span>
+          <button type="button" onclick="normalizza()" title="Uniforma tutto il testo: stessa dimensione e spaziatura" style="font-weight:700; color:var(--accent);">⛭ Normalizza</button>
           <span class="spacing">
+            Dimensione
+            <select id="dimensione" onchange="setDimensione()">
+              <option value="">Normale</option>
+              <option value="piccolo">Piccolo</option>
+              <option value="grande">Grande</option>
+            </select>
             Font
             <select id="font" onchange="setFont()">
               <option value="">Predefinito (Roboto Light)</option>
@@ -241,6 +248,41 @@
     function isInside(tag){ var n=window.getSelection().anchorNode; while(n){ if(n.nodeName===tag) return true; n=n.parentNode; } return false; }
     function setInterlinea(){ $('editorRich').style.lineHeight = $('interlinea').value; }
     function setFont(){ $('editorRich').style.fontFamily = $('font').value || ''; }
+    var SIZE_MAP={ '':'1.05rem', piccolo:'0.92rem', grande:'1.28rem' };
+    function setDimensione(){ $('editorRich').style.fontSize = SIZE_MAP[$('dimensione').value]||SIZE_MAP['']; }
+
+    /* ── NORMALIZZA: uniforma tutto il testo (toglie dimensioni/spaziature/font sporchi
+       incollati da Google Docs, mantiene grassetto/corsivo/titoli/elenchi/media) ── */
+    function normalizza(){
+      var ed=$('editorRich');
+      var tmp=document.createElement('div'); tmp.innerHTML=ed.innerHTML;
+      // converte gli stili di formattazione in tag veri, poi rimuove span/font e tutti gli stili
+      Array.prototype.slice.call(tmp.querySelectorAll('span,font,div,p,b,i,u,strong,em')).forEach(function(el){
+        var st=el.getAttribute('style')||'';
+        var bold=/font-weight\s*:\s*(bold|[6789]00)/i.test(st);
+        var ital=/font-style\s*:\s*italic/i.test(st);
+        var und =/text-decoration[^;]*underline/i.test(st);
+        function wrap(t){ var w=document.createElement(t); while(el.firstChild) w.appendChild(el.firstChild); el.appendChild(w); }
+        if(bold) wrap('strong'); if(ital) wrap('em'); if(und) wrap('u');
+      });
+      Array.prototype.slice.call(tmp.querySelectorAll('*')).forEach(function(el){
+        var tag=el.tagName.toLowerCase();
+        if(tag==='span'||tag==='font'){
+          var frag=document.createDocumentFragment();
+          while(el.firstChild) frag.appendChild(el.firstChild);
+          el.parentNode.replaceChild(frag,el);
+        } else if(tag==='img'){ var s=el.getAttribute('src'); clear(el); if(s) el.setAttribute('src',s);
+        } else if(tag==='figure'){ var c=el.getAttribute('class'),d=el.getAttribute('data-type'),u=el.getAttribute('data-url'); clear(el); if(c)el.setAttribute('class',c); if(d)el.setAttribute('data-type',d); if(u)el.setAttribute('data-url',u);
+        } else if(tag==='a'){ var h=el.getAttribute('href'); clear(el); if(h)el.setAttribute('href',h);
+        } else { clear(el); }
+      });
+      function clear(el){ Array.prototype.slice.call(el.attributes).forEach(function(a){ el.removeAttribute(a.name); }); }
+      ed.innerHTML=tmp.innerHTML;
+      // reset selettori e stile dell'editor
+      $('dimensione').value=''; $('font').value=''; $('interlinea').value='1.6';
+      ed.style.fontSize=SIZE_MAP['']; ed.style.fontFamily=''; ed.style.lineHeight='1.6';
+      toast('Testo uniformato');
+    }
 
     /* ── inserisce immagine/video nel punto del cursore ── */
     function driveThumb(url){
@@ -271,17 +313,19 @@
       if(!h || h==='<br>' || h==='<p></p>') return '';
       var style = 'line-height:'+$('interlinea').value;
       var f = $('font').value; if(f) style += ';font-family:'+f;
-      return '<div style="'+style+'">'+h+'</div>';
+      var dim = $('dimensione').value, attr = dim ? ' data-size="'+dim+'"' : '';
+      return '<div style="'+style+'"'+attr+'>'+h+'</div>';
     }
     function loadRich(testo){
-      var ed=$('editorRich'), sel=$('interlinea'), fnt=$('font');
-      sel.value='1.6'; ed.style.lineHeight='1.6'; fnt.value=''; ed.style.fontFamily='';
+      var ed=$('editorRich'), sel=$('interlinea'), fnt=$('font'), dim=$('dimensione');
+      sel.value='1.6'; ed.style.lineHeight='1.6'; fnt.value=''; ed.style.fontFamily=''; dim.value=''; ed.style.fontSize=SIZE_MAP[''];
       if(!testo){ ed.innerHTML=''; return; }
       var tmp=document.createElement('div'); tmp.innerHTML=testo;
       var first=tmp.firstElementChild;
-      if(tmp.children.length===1 && first && first.tagName==='DIV' && (first.style.lineHeight||first.style.fontFamily)){
+      if(tmp.children.length===1 && first && first.tagName==='DIV' && (first.style.lineHeight||first.style.fontFamily||first.getAttribute('data-size'))){
         if(first.style.lineHeight){ sel.value=first.style.lineHeight; ed.style.lineHeight=first.style.lineHeight; }
         if(first.style.fontFamily){ fnt.value=first.style.fontFamily.replace(/"/g,"'"); ed.style.fontFamily=first.style.fontFamily; }
+        var ds=first.getAttribute('data-size'); if(ds){ dim.value=ds; ed.style.fontSize=SIZE_MAP[ds]||SIZE_MAP['']; }
         ed.innerHTML=first.innerHTML;
       } else if(/<[a-z]/i.test(testo)){
         ed.innerHTML=testo;
