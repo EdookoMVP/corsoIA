@@ -49,6 +49,8 @@
 
     *{ box-sizing:border-box; }
     html,body{ height:100%; }
+    body{ overflow:hidden; }
+    #auth{ height:100vh; overflow-y:auto; }
     body{
       margin:0; font-family:var(--font-body); font-weight:var(--weight-body);
       background:var(--paper); color:var(--ink);
@@ -124,6 +126,15 @@
     .progress{ flex:1; height:6px; border-radius:99px; background:var(--hair); overflow:hidden; }
     .progress > i{ display:block; height:100%; width:0; background:var(--accent); border-radius:99px; transition:width .4s ease; }
     .progress-label{ font-size:.78rem; font-weight:700; color:var(--muted); white-space:nowrap; }
+
+    /* Barra di avanzamento fissa in fondo (non scorre via) */
+    .botbar{ position:fixed; left:300px; right:0; bottom:0; z-index:30; display:flex; align-items:center; gap:14px;
+      padding:12px 28px; background:rgba(255,255,255,.92); backdrop-filter:blur(6px); border-top:1px solid var(--hair); }
+    /* Bottone Esci flottante (mobile) */
+    .float-exit{ display:none; position:fixed; top:10px; right:12px; z-index:31; border:1px solid var(--hair);
+      background:rgba(255,255,255,.95); color:var(--ink-soft); font-family:inherit; font-size:.8rem; font-weight:600;
+      padding:7px 14px; border-radius:999px; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.06); }
+    .float-exit:hover{ background:var(--accent-soft); color:var(--accent); }
 
     /* Card */
     .card{ background:var(--surface); border:1px solid var(--hair); border-radius:var(--radius); box-shadow:var(--shadow); padding:30px 32px; margin-bottom:22px; }
@@ -227,11 +238,11 @@
       #app.show{ grid-template-columns:1fr; }
       .rail{ display:none; }
       .reader{ height:100vh; overflow-y:auto; -webkit-overflow-scrolling:touch; }
-      .reader-inner{ padding:16px 14px 90px; }
+      .reader-inner{ padding:52px 14px 88px; }
       .card{ padding:20px 16px; border-radius:14px; }
       :root{ --size-title:1.22rem; --size-body:1.04rem; --size-question:1.04rem; }
-      .topbar{ padding:10px 0 14px; }
-      .topbar-exit{ display:inline-block; }
+      .botbar{ left:0; padding:11px 16px; }
+      .float-exit{ display:block; }
       .auth-card{ padding:32px 22px; }
       .fig img{ max-height:300px; }
       .prose figure.cardmedia img{ max-height:260px; }
@@ -283,14 +294,15 @@
 
     <main class="reader">
       <div class="reader-inner">
-        <div class="topbar">
-          <div class="progress"><i id="bar"></i></div>
-          <span class="progress-label" id="prog"></span>
-          <button class="topbar-exit" onclick="logout()" title="Esci">Esci</button>
-        </div>
+        <button class="float-exit" onclick="logout()" title="Esci">Esci</button>
         <div id="cards"></div>
       </div>
     </main>
+
+    <div class="botbar">
+      <div class="progress"><i id="bar"></i></div>
+      <span class="progress-label" id="prog"></span>
+    </div>
   </div>
 
   <script>
@@ -538,12 +550,11 @@
     var card=getCard(id);
     var ta=document.getElementById('apr-'+id); var risp=ta?ta.value.trim():'';
     gas('salvaRispostaInSheet', studentName, id, card.titolo, risp, 'APERTA');
-    var b=document.getElementById('btn-'+id);
     if(card.feedbackEsatto && !sGet('apr-done-'+id)){
       sSet('apr-done-'+id,'1');
       if(ta) ta.disabled=true;
       mostraFeedback(id,true,card.feedbackEsatto);
-      if(b){ b.innerText='Prosegui'; b.onclick=function(){ prosegui(id); }; }
+      proseguiSottoFeedback(id);
     } else {
       prosegui(id);
     }
@@ -587,8 +598,7 @@
     gas('salvaRispostaInSheet', studentName, id, card.titolo, risposte.join(' | '), tutteGiuste?'CORRETTO':'ERRATO');
     var msg=tutteGiuste?(card.feedbackEsatto||'Esatto!'):(card.feedbackErrato||'Rivedi le parti evidenziate.');
     mostraFeedback(id,tutteGiuste,msg);
-    var b=document.getElementById('btn-'+id);
-    if(b){ b.innerText='Prosegui'; b.onclick=function(){ prosegui(id); }; }
+    proseguiSottoFeedback(id);
   }
 
   function htmlTesto(card,isActive){
@@ -696,8 +706,7 @@
       else if(opz===scelta) el.classList.add('wrong');
     });
     mostraFeedback(id, corretta, corretta?card.feedbackEsatto:card.feedbackErrato);
-    var b=document.getElementById('btn-'+id);
-    if(b){ b.disabled=false; b.innerText='Prosegui'; b.onclick=function(){ prosegui(id); }; }
+    proseguiSottoFeedback(id);
   }
 
   function verificaTesto(id){
@@ -802,6 +811,19 @@
 
   /* ══ FEEDBACK / UTILITÀ ══ */
   function feedbackBox(id){ return '<div class="feedback" id="fb-'+id+'"></div>'; }
+
+  /* Mostra il pulsante Prosegui SOTTO il feedback (così si legge prima di proseguire) */
+  function proseguiSottoFeedback(id){
+    var b=document.getElementById('btn-'+id);
+    if(b && b.parentNode) b.parentNode.style.display='none';
+    var fb=document.getElementById('fb-'+id);
+    if(!fb || document.getElementById('go-'+id)) return;
+    var act=document.createElement('div');
+    act.className='card-actions'; act.id='go-'+id;
+    act.innerHTML='<button class="btn" onclick="prosegui('+id+')">Prosegui</button>';
+    fb.parentNode.insertBefore(act, fb.nextSibling);
+    setTimeout(function(){ act.scrollIntoView({behavior:'smooth',block:'nearest'}); },80);
+  }
   function mostraFeedback(id,ok,testo){ var el=document.getElementById('fb-'+id); if(!el||!testo) return; el.className='feedback show '+(ok?'ok':'ko'); el.innerHTML=pulisciHTML(testo); renderMediaBlocks(el); }
   function getCard(id){ return cards.filter(function(c){ return c.id===id; })[0]; }
   function val(id){ return (document.getElementById(id).value||'').trim(); }
