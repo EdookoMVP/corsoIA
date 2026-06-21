@@ -90,6 +90,9 @@
     .lista{ margin-top:28px; }
     .lista h2{ font-family:var(--font-display); font-size:1rem; margin:0 0 12px; }
     .item{ display:flex; align-items:center; gap:13px; background:#fff; border:1px solid var(--hair); border-radius:11px; padding:11px 15px; margin-bottom:8px; }
+    .ord-wrap{ display:flex; flex-direction:column; gap:2px; flex:0 0 auto; }
+    .ord{ border:1px solid var(--hair); background:#fff; color:var(--accent); width:26px; height:20px; line-height:1; border-radius:6px; cursor:pointer; font-size:.7rem; padding:0; }
+    .ord:hover{ background:var(--accent-soft); }
     .item .id{ font-weight:800; color:var(--accent); width:28px; font-size:.9rem; }
     .item .tag{ font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); white-space:nowrap; width:130px; }
     .item .txt{ flex:1; color:var(--ink-soft); font-size:.85rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -314,8 +317,8 @@
     /* ── inserisce immagine/video nel punto del cursore ── */
     function driveThumb(url){
       if(!url) return '';
-      var m=url.match(/\/file\/d\/([^/?]+)/)||url.match(/[?&]id=([^&]+)/);
-      if(m) return 'https://drive.google.com/thumbnail?id='+m[1]+'&sz=w1400';
+      var m=url.match(/\/file\/d\/([^/?]+)/)||url.match(/[?&]id=([^&]+)/)||url.match(/googleusercontent\.com\/d\/([^=?/]+)/);
+      if(m) return 'https://lh3.googleusercontent.com/d/'+m[1]+'=w1400';
       return url;
     }
     function escAttr(s){ return String(s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -520,8 +523,11 @@
       $('conta').innerText=lista.length;
       var box=$('elenco');
       if(!lista.length){box.innerHTML='<div class="empty">Nessuna card ancora. Creane una qui sopra.</div>';return;}
-      box.innerHTML=lista.map(function(c){
+      box.innerHTML=lista.map(function(c,i){
+        var su  = i===0 ? '' : '<button class="ord" title="Sposta su" onclick="sposta('+c.id+',-1)">▲</button>';
+        var giu = i===lista.length-1 ? '' : '<button class="ord" title="Sposta giù" onclick="sposta('+c.id+',1)">▼</button>';
         return '<div class="item">'+
+          '<span class="ord-wrap">'+su+giu+'</span>'+
           '<span class="id">'+c.id+'</span>'+
           '<span class="tag">'+esc(c.tipoLabel)+'</span>'+
           '<span class="txt">'+esc(c.anteprima)+'</span>'+
@@ -529,6 +535,9 @@
           '<button class="del" onclick="elimina('+c.id+')">Elimina</button>'+
         '</div>';
       }).join('');
+    }
+    function sposta(id,dir){
+      google.script.run.withSuccessHandler(mostraLista).spostaCard(id,dir);
     }
     function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 

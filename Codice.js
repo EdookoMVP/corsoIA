@@ -30,7 +30,7 @@ function mostraGestione() {
 function doGet() {
   return HtmlService.createTemplateFromFile('Index')
     .evaluate()
-    .setTitle('Papiro Dinamica — Come funziona una IA')
+    .setTitle(getTitoloModulo())
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
@@ -190,7 +190,8 @@ function elencaCard() {
     var r = data[i];
     if (r[0] === '' || r[0] == null) continue;
     var t = String(r[1] || '').toLowerCase();
-    var anteprima = String(r[3] || '').replace(/\[[^\]]*\]/g, '___').slice(0, 80);
+    var grezzo = String(r[3] || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g,' ').replace(/\s+/g,' ').trim();
+    var anteprima = grezzo.replace(/\[[^\]]*\]/g, '___').slice(0, 80);
     out.push({
       id: parseInt(r[0], 10),
       tipo: t,
@@ -233,6 +234,30 @@ function caricaCard(id) {
     }
   }
   return null;
+}
+
+/* Sposta una card su (-1) o giù (+1) scambiando la riga con quella adiacente. */
+function spostaCard(id, dir) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Configurazione');
+  var data = sheet.getDataRange().getValues();
+  var rows = [];
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0] !== '' && data[i][0] != null) rows.push(i + 1); // righe reali (1-based)
+  }
+  var pos = -1;
+  for (var k = 0; k < rows.length; k++) {
+    if (parseInt(data[rows[k] - 1][0], 10) === parseInt(id, 10)) { pos = k; break; }
+  }
+  if (pos === -1) return elencaCard();
+  var target = pos + (dir < 0 ? -1 : 1);
+  if (target < 0 || target >= rows.length) return elencaCard(); // già in cima/fondo
+  var rA = rows[pos], rB = rows[target];
+  var n = 10;
+  var valsA = sheet.getRange(rA, 1, 1, n).getValues()[0];
+  var valsB = sheet.getRange(rB, 1, 1, n).getValues()[0];
+  sheet.getRange(rA, 1, 1, n).setValues([valsB]);
+  sheet.getRange(rB, 1, 1, n).setValues([valsA]);
+  return elencaCard();
 }
 
 /* Elimina una card per id. */

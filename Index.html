@@ -180,6 +180,14 @@
     .opt.selected[disabled]:hover{ border-color:var(--accent); background:var(--accent-soft); }
 
     .text-input{ width:100%; padding:13px 16px; font-size:.97rem; border:1.5px solid var(--hair); border-radius:13px; margin-bottom:6px; }
+    .q-prose{ margin-bottom:18px; }
+    .text-area{ width:100%; min-height:120px; padding:13px 16px; font-size:1rem; line-height:1.5; border:1.5px solid var(--hair); border-radius:13px; margin-bottom:8px; font-family:inherit; resize:vertical; color:var(--ink); }
+    .text-area:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+    .dc-frase{ font-size:var(--size-body); line-height:2.2; }
+    .dc-blank{ font-size:.98rem; padding:5px 10px; border:1.5px solid var(--accent); border-radius:10px; background:var(--accent-soft); color:var(--ink); font-family:inherit; margin:0 3px; cursor:pointer; vertical-align:middle; }
+    .dc-blank:focus{ outline:none; box-shadow:0 0 0 3px var(--accent-soft); }
+    .dc-blank.ok{ border-color:var(--ok); background:var(--ok-soft); color:var(--ok); font-weight:700; }
+    .dc-blank.ko{ border-color:var(--ko); background:var(--ko-soft); color:var(--ko); font-weight:700; }
     .text-input:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
 
     .feedback{ margin-top:18px; padding:14px 16px; border-radius:13px; font-size:.92rem; line-height:1.55; display:none; }
@@ -473,6 +481,8 @@
   function buildCardHtml(card,isActive){
     switch(card.tipo){
       case 'quiz':          return htmlQuiz(card,isActive);
+      case 'aperta':        return htmlAperta(card,isActive);
+      case 'completamento': return htmlCompletamento(card,isActive);
       case 'testo':         return htmlTesto(card,isActive);
       case 'video':         return htmlVideo(card,isActive);
       case 'mappa_neurale': return htmlMappa(card,isActive);
@@ -499,7 +509,7 @@
   }
 
   function htmlQuiz(card,isActive){
-    var h=header(card,'Domanda')+'<p class="question">'+esc(card.testo)+'</p>';
+    var h=header(card,'Domanda')+figure(card)+'<div class="prose q-prose">'+pulisciHTML(card.testo)+'</div>';
     h+='<div class="options" id="opts-'+card.id+'">';
     (card.opzioni||[]).forEach(function(opz,oi){
       h+='<button type="button" class="opt" id="opt-'+card.id+'-'+oi+'" '+
@@ -510,6 +520,71 @@
     if(isActive){ h+='<div class="card-actions"><button class="btn" id="btn-'+card.id+'" onclick="verificaQuiz('+card.id+')">Verifica la risposta</button></div>'; }
     h+=feedbackBox(card.id);
     return h;
+  }
+
+  /* ── DOMANDA APERTA ── */
+  function htmlAperta(card,isActive){
+    var h=header(card,'Domanda')+figure(card)+'<div class="prose q-prose">'+pulisciHTML(card.testo)+'</div>';
+    h+='<textarea class="text-area" id="apr-'+card.id+'" placeholder="Scrivi la tua risposta…" '+(isActive?'':'disabled')+'></textarea>';
+    if(isActive){ h+='<div class="card-actions"><button class="btn" id="btn-'+card.id+'" onclick="verificaAperta('+card.id+')">Prosegui</button></div>'; }
+    h+=feedbackBox(card.id);
+    return h;
+  }
+  function verificaAperta(id){
+    var card=getCard(id);
+    var ta=document.getElementById('apr-'+id); var risp=ta?ta.value.trim():'';
+    gas('salvaRispostaInSheet', studentName, id, card.titolo, risp, 'APERTA');
+    var b=document.getElementById('btn-'+id);
+    if(card.feedbackEsatto && !sGet('apr-done-'+id)){
+      sSet('apr-done-'+id,'1');
+      if(ta) ta.disabled=true;
+      mostraFeedback(id,true,card.feedbackEsatto);
+      if(b){ b.innerText='Prosegui'; b.onclick=function(){ prosegui(id); }; }
+    } else {
+      prosegui(id);
+    }
+  }
+
+  /* ── COMPLETAMENTO (frase con buchi) ── */
+  function htmlCompletamento(card,isActive){
+    var h=header(card,'Completa')+figure(card);
+    var parts=card.parts||[], blanks=card.blanks||[];
+    h+='<div class="prose dc-frase">';
+    if(!parts.length){ h+=esc(card.testo); }
+    else parts.forEach(function(p){
+      if(p.t==='text'){ h+=esc(p.v); }
+      else{
+        var b=blanks[p.i]||{options:[]};
+        var opts=(b.options||[]).slice();
+        h+='<select class="dc-blank" data-correct="'+esc(b.correct||'')+'" '+(isActive?'':'disabled')+'>';
+        h+='<option value="">———</option>';
+        opts.forEach(function(o){ h+='<option value="'+esc(o)+'">'+esc(o)+'</option>'; });
+        h+='</select>';
+      }
+    });
+    h+='</div>';
+    if(isActive){ h+='<div class="card-actions"><button class="btn" id="btn-'+card.id+'" onclick="verificaCompletamento('+card.id+')">Verifica</button></div>'; }
+    h+=feedbackBox(card.id);
+    return h;
+  }
+  function verificaCompletamento(id){
+    var card=getCard(id);
+    var box=document.getElementById('card-'+id);
+    var selects=box.querySelectorAll('.dc-blank');
+    var tutteGiuste=true, risposte=[];
+    Array.prototype.forEach.call(selects,function(s){
+      var val=(s.value||'').trim(), corr=(s.getAttribute('data-correct')||'').trim();
+      risposte.push(val);
+      s.classList.remove('ok','ko');
+      if(val.toLowerCase()===corr.toLowerCase() && val!==''){ s.classList.add('ok'); }
+      else { s.classList.add('ko'); tutteGiuste=false; }
+      s.disabled=true;
+    });
+    gas('salvaRispostaInSheet', studentName, id, card.titolo, risposte.join(' | '), tutteGiuste?'CORRETTO':'ERRATO');
+    var msg=tutteGiuste?(card.feedbackEsatto||'Esatto!'):(card.feedbackErrato||'Rivedi le parti evidenziate.');
+    mostraFeedback(id,tutteGiuste,msg);
+    var b=document.getElementById('btn-'+id);
+    if(b){ b.innerText='Prosegui'; b.onclick=function(){ prosegui(id); }; }
   }
 
   function htmlTesto(card,isActive){
@@ -609,18 +684,16 @@
     var corretta=(scelta.toLowerCase().trim()===String(card.rispostaCorretta).toLowerCase().trim());
     var opts=document.getElementById('opts-'+id).querySelectorAll('.opt');
     gas('salvaRispostaInSheet', studentName, id, card.titolo, scelta, corretta?'CORRETTO':'ERRATO');
-    if(corretta){
-      Array.prototype.forEach.call(opts,function(o){ o.disabled=true; o.classList.remove('selected'); });
-      (card.opzioni||[]).forEach(function(opz,oi){ if(opz.toLowerCase().trim()===String(card.rispostaCorretta).toLowerCase().trim()) document.getElementById('opt-'+id+'-'+oi).classList.add('correct'); });
-      mostraFeedback(id,true,card.feedbackEsatto);
-      // niente avanzamento automatico: lo studente prosegue quando vuole
-      var b=document.getElementById('btn-'+id);
-      if(b){ b.disabled=false; b.innerText='Prosegui'; b.onclick=function(){ prosegui(id); }; }
-    } else {
-      (card.opzioni||[]).forEach(function(opz,oi){ if(opz===scelta) document.getElementById('opt-'+id+'-'+oi).classList.add('wrong'); });
-      mostraFeedback(id,false,card.feedbackErrato);
-      setTimeout(function(){ (card.opzioni||[]).forEach(function(opz,oi){ document.getElementById('opt-'+id+'-'+oi).classList.remove('wrong','selected'); }); selezione[id]=null; },1600);
-    }
+    // blocca tutte le opzioni: si risponde una volta sola
+    Array.prototype.forEach.call(opts,function(o){ o.disabled=true; o.classList.remove('selected'); });
+    (card.opzioni||[]).forEach(function(opz,oi){
+      var el=document.getElementById('opt-'+id+'-'+oi);
+      if(opz.toLowerCase().trim()===String(card.rispostaCorretta).toLowerCase().trim()) el.classList.add('correct');
+      else if(opz===scelta) el.classList.add('wrong');
+    });
+    mostraFeedback(id, corretta, corretta?card.feedbackEsatto:card.feedbackErrato);
+    var b=document.getElementById('btn-'+id);
+    if(b){ b.disabled=false; b.innerText='Prosegui'; b.onclick=function(){ prosegui(id); }; }
   }
 
   function verificaTesto(id){
@@ -676,6 +749,12 @@
       mostraFeedback(card.id,true,card.feedbackEsatto);
     } else if(card.tipo==='mappa_neurale'){
       mostraFeedback(card.id,true,card.feedbackEsatto);
+    } else if(card.tipo==='completamento'){
+      var box=document.getElementById('card-'+card.id);
+      if(box){ Array.prototype.forEach.call(box.querySelectorAll('.dc-blank'),function(s){ s.value=s.getAttribute('data-correct')||''; s.classList.add('ok'); s.disabled=true; }); }
+      if(card.feedbackEsatto) mostraFeedback(card.id,true,card.feedbackEsatto);
+    } else if(card.tipo==='aperta'){
+      if(card.feedbackEsatto) mostraFeedback(card.id,true,card.feedbackEsatto);
     }
   }
 
@@ -724,7 +803,8 @@
   function val(id){ return (document.getElementById(id).value||'').trim(); }
   function scrollToCard(id){ var el=document.getElementById('card-'+id); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); }
   function paragrafi(t){ if(!t) return ''; return String(t).split(/\n\s*\n/).map(function(p){ return '<p>'+esc(p.trim()).replace(/\n/g,'<br>')+'</p>'; }).join(''); }
-  function driveUrl(url){ if(!url) return ''; var id='', m=url.match(/\/file\/d\/([^/?]+)/); if(m) id=m[1]; if(!id){ var m2=url.match(/[?&]id=([^&]+)/); if(m2) id=m2[1]; } if(!id) return url; return 'https://drive.google.com/thumbnail?id='+id+'&sz=w1400'; }
+  function driveIdFrom(url){ var s=String(url||''); var m=s.match(/\/file\/d\/([^/?]+)/)||s.match(/[?&]id=([^&]+)/)||s.match(/googleusercontent\.com\/d\/([^=?/]+)/); return m?m[1]:''; }
+  function driveUrl(url){ if(!url) return ''; var id=driveIdFrom(url); return id?('https://lh3.googleusercontent.com/d/'+id+'=w1400'):url; }
   function checkSvg(s){ s=s||11; return '<svg width="'+s+'" height="'+s+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>'; }
   function esc(s){ if(s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
@@ -796,6 +876,14 @@
   /* Trasforma i blocchi video (figure[data-type=video]) in iframe dentro un contenitore */
   function renderMediaBlocks(root){
     if(!root) return;
+    // immagini: converti ogni URL Drive nel formato affidabile lh3 e gestisci eventuali errori
+    Array.prototype.slice.call(root.querySelectorAll('img')).forEach(function(img){
+      var s=img.getAttribute('src')||'';
+      var id=driveIdFrom(s);
+      if(id) img.setAttribute('src','https://lh3.googleusercontent.com/d/'+id+'=w1400');
+      img.setAttribute('loading','lazy');
+      img.onerror=function(){ this.style.display='none'; };
+    });
     Array.prototype.slice.call(root.querySelectorAll('figure.cardmedia[data-type="video"]')).forEach(function(fig){
       if(fig.querySelector('iframe')) return;
       var embed=embedUrl(fig.getAttribute('data-url'));
