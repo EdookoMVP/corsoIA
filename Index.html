@@ -184,6 +184,11 @@
 
     .feedback{ margin-top:18px; padding:14px 16px; border-radius:13px; font-size:.92rem; line-height:1.55; display:none; }
     .feedback.show{ display:block; animation:rise .3s ease both; }
+    .feedback p{ margin:0 0 .6em; } .feedback p:last-child{ margin-bottom:0; }
+    .feedback figure.cardmedia{ margin:12px 0; text-align:center; }
+    .feedback figure.cardmedia img{ max-width:100%; max-height:300px; border-radius:10px; }
+    .feedback figure.cardmedia .video-wrap{ position:relative; padding-bottom:56.25%; height:0; border-radius:10px; overflow:hidden; }
+    .feedback figure.cardmedia .video-wrap iframe{ position:absolute; inset:0; width:100%; height:100%; border:0; }
     .feedback.ok{ background:var(--ok-soft); border:1px solid #BEE9D6; color:#06603F; }
     .feedback.ko{ background:var(--ko-soft); border:1px solid #F2CBCB; color:#8F2A2A; }
 
@@ -201,6 +206,13 @@
     .alert-box p{ color:var(--ink-soft); font-size:.95rem; line-height:1.5; margin:0 0 20px; }
     .alert-box .btn{ width:100%; }
 
+    .chapter{ margin:44px 2px 8px; animation:rise .5s cubic-bezier(.16,.84,.28,1) both; }
+    .chapter:first-child{ margin-top:6px; }
+    .chapter h2{ font-family:var(--font-display); font-weight:700; font-size:1.65rem; line-height:1.25; color:var(--ink); margin:0 0 12px; letter-spacing:-.01em; }
+    .chapter .rule{ height:3px; width:56px; background:var(--accent); border-radius:2px; }
+    .rail-chapter{ font-size:.7rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-soft); margin:16px 0 8px; padding-top:14px; border-top:1px solid var(--hair); }
+    .rail-chapter:first-child{ border-top:none; padding-top:0; margin-top:0; }
+
     @media (max-width:880px){
       #app.show{ grid-template-columns:1fr; }
       .rail{ display:none; }
@@ -216,6 +228,8 @@
       .btn{ padding:14px 24px; font-size:1rem; } /* bottoni comodi col pollice */
       .done-email{ flex-direction:column; }
       .done-email .btn{ width:100%; }
+      .chapter h2{ font-size:1.34rem; }
+      .chapter{ margin:32px 2px 6px; }
     }
     @media (prefers-reduced-motion:reduce){ *{ animation:none !important; transition:none !important; } }
   </style>
@@ -359,15 +373,23 @@
     avviaCorso();
   }
 
+  function isCapitolo(i){ return cards[i] && cards[i].tipo==='capitolo'; }
+
   function avviaCorso(){
     document.getElementById('auth').classList.add('hidden');
     document.getElementById('app').classList.add('show');
     document.getElementById('who').innerText=studentName;
     var saved=parseInt(sGet('papiro_progress_'+studentKey),10);
     currentIndex=(!isNaN(saved)&&saved>=0)?Math.min(saved,cards.length):0;
+    // se il progresso punta a un capitolo, avanza fino alla prima card vera
+    while(currentIndex<cards.length && isCapitolo(currentIndex)) currentIndex++;
     renderedUpTo=-1; document.getElementById('cards').innerHTML='';
     renderSteps();
-    for(var i=0;i<=currentIndex&&i<cards.length;i++){ appendCard(i, i===currentIndex); renderedUpTo=i; }
+    for(var i=0;i<=currentIndex&&i<cards.length;i++){
+      if(isCapitolo(i)) appendCapitolo(i);
+      else appendCard(i, i===currentIndex);
+      renderedUpTo=i;
+    }
     if(currentIndex>=cards.length) showDone();
     updateProgress();
   }
@@ -395,18 +417,31 @@
   function renderSteps(){
     var nav=document.getElementById('steps'); nav.innerHTML='';
     cards.forEach(function(card,i){
+      if(card.tipo==='capitolo'){
+        var sec=document.createElement('div');
+        sec.className='rail-chapter';
+        sec.innerText=soloTesto(card.testo);
+        nav.appendChild(sec);
+        return;
+      }
       var state=(i<currentIndex)?'done':(i===currentIndex?'active':'locked');
       var clickable=(i<=currentIndex&&i<cards.length);
       var el=document.createElement('div');
       el.className='step '+state+(clickable?' clickable':'');
-      el.innerHTML='<span class="marker">'+iconTipo(card.tipo)+'</span><span class="label">'+esc(card.titolo)+'</span>';
+      el.innerHTML='<span class="marker">'+iconTipo(card.tipo)+'</span><span class="label">'+esc(card.titolo||('Passo '+(i+1)))+'</span>';
       if(clickable){ el.onclick=(function(id){ return function(){ scrollToCard(id); }; })(card.id); }
       nav.appendChild(el);
     });
   }
 
   function updateProgress(){
-    var tot=cards.length, done=Math.min(currentIndex,tot), pct=tot?Math.round(done/tot*100):0;
+    var tot=0, done=0;
+    for(var i=0;i<cards.length;i++){
+      if(isCapitolo(i)) continue;     // i capitoli non contano come passi
+      tot++;
+      if(i<currentIndex) done++;
+    }
+    var pct=tot?Math.round(done/tot*100):0;
     document.getElementById('bar').style.width=pct+'%';
     document.getElementById('prog').innerText=pct+'% completato';
   }
@@ -423,6 +458,16 @@
       if(card.tipo==='narrazione'){ streamNarrazione(card); }
       setTimeout(function(){ scrollToCard(card.id); }, 80);
     } else { finalizeStatic(card); }
+  }
+
+  /* Intestazione di capitolo: fuori e sopra le card, non è un passo */
+  function soloTesto(html){ var d=document.createElement('div'); d.innerHTML=String(html||''); return d.textContent||''; }
+  function appendCapitolo(i){
+    var card=cards[i];
+    var div=document.createElement('div');
+    div.id='card-'+card.id; div.className='chapter enter';
+    div.innerHTML='<h2>'+esc(soloTesto(card.testo))+'</h2><div class="rule"></div>';
+    document.getElementById('cards').appendChild(div);
   }
 
   function buildCardHtml(card,isActive){
@@ -567,9 +612,10 @@
     if(corretta){
       Array.prototype.forEach.call(opts,function(o){ o.disabled=true; o.classList.remove('selected'); });
       (card.opzioni||[]).forEach(function(opz,oi){ if(opz.toLowerCase().trim()===String(card.rispostaCorretta).toLowerCase().trim()) document.getElementById('opt-'+id+'-'+oi).classList.add('correct'); });
-      var b=document.getElementById('btn-'+id); if(b) b.disabled=true;
       mostraFeedback(id,true,card.feedbackEsatto);
-      setTimeout(function(){ prosegui(id); },1300);
+      // niente avanzamento automatico: lo studente prosegue quando vuole
+      var b=document.getElementById('btn-'+id);
+      if(b){ b.disabled=false; b.innerText='Prosegui'; b.onclick=function(){ prosegui(id); }; }
     } else {
       (card.opzioni||[]).forEach(function(opz,oi){ if(opz===scelta) document.getElementById('opt-'+id+'-'+oi).classList.add('wrong'); });
       mostraFeedback(id,false,card.feedbackErrato);
@@ -603,6 +649,12 @@
   function avanza(){
     finalizeActive();
     currentIndex++;
+    // renderizza eventuali capitoli che precedono la prossima card vera
+    while(currentIndex<cards.length && isCapitolo(currentIndex)){
+      appendCapitolo(currentIndex);
+      renderedUpTo=currentIndex;
+      currentIndex++;
+    }
     sSet('papiro_progress_'+studentKey,currentIndex);
     renderSteps(); updateProgress();
     if(currentIndex<cards.length){ appendCard(currentIndex,true); renderedUpTo=currentIndex; }
@@ -667,7 +719,7 @@
 
   /* ══ FEEDBACK / UTILITÀ ══ */
   function feedbackBox(id){ return '<div class="feedback" id="fb-'+id+'"></div>'; }
-  function mostraFeedback(id,ok,testo){ var el=document.getElementById('fb-'+id); if(!el||!testo) return; el.className='feedback show '+(ok?'ok':'ko'); el.innerText=testo; }
+  function mostraFeedback(id,ok,testo){ var el=document.getElementById('fb-'+id); if(!el||!testo) return; el.className='feedback show '+(ok?'ok':'ko'); el.innerHTML=pulisciHTML(testo); renderMediaBlocks(el); }
   function getCard(id){ return cards.filter(function(c){ return c.id===id; })[0]; }
   function val(id){ return (document.getElementById(id).value||'').trim(); }
   function scrollToCard(id){ var el=document.getElementById('card-'+id); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); }

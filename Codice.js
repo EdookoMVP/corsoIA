@@ -184,7 +184,7 @@ function elencaCard() {
   if (!sheet) return [];
   var data = sheet.getDataRange().getValues();
   var nomi = { narrazione: 'Narrazione', quiz: 'Risposta multipla', aperta: 'Risposta aperta',
-               completamento: 'Completamento', testo: 'Testo', video: 'Video', mappa_neurale: 'Mappa' };
+               completamento: 'Completamento', capitolo: 'Capitolo', testo: 'Testo', video: 'Video', mappa_neurale: 'Mappa' };
   var out = [];
   for (var i = 1; i < data.length; i++) {
     var r = data[i];
@@ -280,6 +280,11 @@ function esportaTestoCorso() {
   var nomi = { narrazione: 'Card', quiz: 'Domanda a risposta multipla', aperta: 'Domanda aperta', completamento: 'Completamento' };
   var out = titolo.toUpperCase() + '\n' + '='.repeat(titolo.length) + '\n\n';
   cards.forEach(function (c, idx) {
+    if (c.tipo === 'capitolo') {
+      var tit = String(c.testo || '').replace(/<[^>]+>/g, '').trim();
+      out += '\n\n########  ' + tit.toUpperCase() + '  ########\n\n';
+      return;
+    }
     out += '── Card ' + c.id + ' · ' + (nomi[c.tipo] || c.tipo) + ' ──\n';
     out += pulito(c.testo) + '\n';
     if (c.mediaUrl) out += '[media: ' + c.mediaUrl + ']\n';

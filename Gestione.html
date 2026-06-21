@@ -47,6 +47,14 @@
     .editor figure.cardmedia{ margin:14px 0; text-align:center; }
     .editor figure.cardmedia img{ max-width:100%; max-height:300px; border-radius:10px; border:1px solid var(--hair); }
     .editor figure.cardmedia .vidph{ padding:22px; background:var(--accent-soft); color:var(--accent-700); border-radius:10px; font-weight:700; font-size:.9rem; }
+    .editor.editor-fb{ min-height:110px; font-size:.98rem; border-radius:0 0 11px 11px; }
+    .toolbar.mini{ padding:6px 8px; }
+    .toolbar.mini button{ min-width:34px; height:30px; padding:0 8px; font-size:.88rem; }
+    .opt-row{ display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+    .opt-row input[type=radio]{ width:20px; height:20px; flex:0 0 auto; accent-color:var(--accent); cursor:pointer; }
+    .opt-row input[type=text]{ flex:1; }
+    .opt-row .opt-del{ flex:0 0 auto; border:none; background:transparent; color:var(--ko); font-size:1rem; cursor:pointer; padding:4px 9px; border-radius:8px; }
+    .opt-row .opt-del:hover{ background:var(--ko-soft); }
 
     .row{ display:flex; gap:14px; }
     .row > *{ flex:1; }
@@ -115,13 +123,14 @@
         <option value="quiz">Risposta multipla — domanda con opzioni</option>
         <option value="aperta">Risposta aperta — lo studente scrive un commento</option>
         <option value="completamento">Completamento — frase con parole da scegliere</option>
+        <option value="capitolo">Capitolo — intestazione di una sezione</option>
       </select>
 
       <label id="lbl-testo">Testo della narrazione</label>
 
       <!-- EDITOR RICCO -->
       <div id="rich-wrap">
-        <div class="toolbar" id="toolbar">
+        <div class="toolbar" id="toolbar" data-editor="editorRich">
           <button type="button" data-cmd="bold" title="Grassetto"><b>G</b></button>
           <button type="button" data-cmd="italic" title="Corsivo"><i>C</i></button>
           <button type="button" data-cmd="underline" title="Sottolineato"><u>S</u></button>
@@ -131,10 +140,10 @@
           <button type="button" data-cmd="insertOrderedList" title="Elenco numerato">1. Lista</button>
           <span class="sep"></span>
           <button type="button" data-cmd="createLink" title="Inserisci link">🔗 Link</button>
-          <button type="button" onclick="inserisciMedia('image')" title="Inserisci immagine nel punto del cursore">🖼 Immagine</button>
-          <button type="button" onclick="inserisciMedia('video')" title="Inserisci video nel punto del cursore">🎬 Video</button>
+          <button type="button" data-media="image" title="Inserisci immagine nel punto del cursore">🖼 Immagine</button>
+          <button type="button" data-media="video" title="Inserisci video nel punto del cursore">🎬 Video</button>
           <span class="sep"></span>
-          <button type="button" onclick="normalizza()" title="Uniforma tutto il testo: stessa dimensione e spaziatura" style="font-weight:700; color:var(--accent);">⛭ Normalizza</button>
+          <button type="button" onclick="normalizza('editorRich')" title="Uniforma tutto il testo: stessa dimensione e spaziatura" style="font-weight:700; color:var(--accent);">⛭ Normalizza</button>
           <span class="spacing">
             Dimensione
             <select id="dimensione" onchange="setDimensione()">
@@ -177,20 +186,33 @@
 
       <!-- OPZIONI (quiz) -->
       <div id="g-quiz" class="group">
-        <label>Opzioni di risposta <span class="hint">— una per riga, metti <b>*</b> davanti a quella corretta</span></label>
-        <textarea id="opzioni" style="min-height:120px;" placeholder="*Sì&#10;No"></textarea>
+        <label>Opzioni di risposta <span class="hint">— spunta il pallino della risposta corretta</span></label>
+        <div id="opzioni-list"></div>
+        <button type="button" class="btn btn-ghost" onclick="addOpzione()" style="margin-top:4px; padding:9px 16px; font-size:.85rem;">➕ Aggiungi opzione</button>
       </div>
 
       <!-- FEEDBACK (quiz) -->
       <div id="g-feedback" class="group">
         <div class="row">
           <div>
-            <label>Feedback se risponde giusto</label>
-            <textarea id="fbEsatto" style="min-height:100px;" placeholder="Esatto! …"></textarea>
+            <label>Feedback se risponde giusto <span class="hint">— testo, immagini, video</span></label>
+            <div class="toolbar mini" data-editor="fbEsatto">
+              <button type="button" data-cmd="bold" title="Grassetto"><b>G</b></button>
+              <button type="button" data-cmd="italic" title="Corsivo"><i>C</i></button>
+              <button type="button" data-media="image" title="Inserisci immagine">🖼</button>
+              <button type="button" data-media="video" title="Inserisci video">🎬</button>
+            </div>
+            <div id="fbEsatto" class="editor editor-fb" contenteditable="true" data-ph="Esatto! …"></div>
           </div>
           <div>
-            <label>Feedback se sbaglia</label>
-            <textarea id="fbErrato" style="min-height:100px;" placeholder="In realtà…"></textarea>
+            <label>Feedback se sbaglia <span class="hint">— testo, immagini, video</span></label>
+            <div class="toolbar mini" data-editor="fbErrato">
+              <button type="button" data-cmd="bold" title="Grassetto"><b>G</b></button>
+              <button type="button" data-cmd="italic" title="Corsivo"><i>C</i></button>
+              <button type="button" data-media="image" title="Inserisci immagine">🖼</button>
+              <button type="button" data-media="video" title="Inserisci video">🎬</button>
+            </div>
+            <div id="fbErrato" class="editor editor-fb" contenteditable="true" data-ph="In realtà…"></div>
           </div>
         </div>
       </div>
@@ -202,13 +224,15 @@
       </div>
 
       <!-- MEDIA IN ALTO -->
-      <label>Media in alto <span class="hint">— facoltativo (per metterlo in mezzo al testo, usa 🖼/🎬 nella barra dell'editor)</span></label>
-      <div class="seg" style="margin-bottom:10px;">
-        <label><input type="radio" name="media" value="" checked onchange="toggleMedia()"><span class="chip">Nessuno</span></label>
-        <label><input type="radio" name="media" value="immagine" onchange="toggleMedia()"><span class="chip">Immagine</span></label>
-        <label><input type="radio" name="media" value="video" onchange="toggleMedia()"><span class="chip">Video</span></label>
+      <div id="g-media">
+        <label>Media in alto <span class="hint">— facoltativo (per metterlo in mezzo al testo, usa 🖼/🎬 nella barra dell'editor)</span></label>
+        <div class="seg" style="margin-bottom:10px;">
+          <label><input type="radio" name="media" value="" checked onchange="toggleMedia()"><span class="chip">Nessuno</span></label>
+          <label><input type="radio" name="media" value="immagine" onchange="toggleMedia()"><span class="chip">Immagine</span></label>
+          <label><input type="radio" name="media" value="video" onchange="toggleMedia()"><span class="chip">Video</span></label>
+        </div>
+        <input type="url" id="mediaUrl" placeholder="Incolla il link (Google Drive o YouTube)" disabled>
       </div>
-      <input type="url" id="mediaUrl" placeholder="Incolla il link (Google Drive o YouTube)" disabled>
 
       <div class="actions">
         <button class="btn" id="btn-salva" onclick="salva()">Salva card</button>
@@ -230,21 +254,22 @@
     function $(id){ return document.getElementById(id); }
     try{ document.execCommand('defaultParagraphSeparator', false, 'p'); }catch(e){}
 
-    /* barra strumenti */
-    var toolbar = $('toolbar');
-    toolbar.addEventListener('mousedown', function(e){ if(e.target.closest('button')) e.preventDefault(); });
-    toolbar.addEventListener('click', function(e){
-      var b = e.target.closest('button'); if(!b) return;
-      var cmd = b.getAttribute('data-cmd'), val = b.getAttribute('data-val');
-      $('editorRich').focus();
-      if(cmd === 'createLink'){
-        var u = prompt('Indirizzo del link (https://…)'); if(u) document.execCommand('createLink', false, u); return;
-      }
-      if(cmd === 'formatBlock'){
-        var inH = isInside('H4'); document.execCommand('formatBlock', false, inH ? 'p' : (val||'h4')); return;
-      }
-      document.execCommand(cmd, false, null);
-    });
+    /* barra strumenti — funziona su qualsiasi editor indicato da data-editor */
+    function wireToolbar(tb){
+      var targetId=tb.getAttribute('data-editor');
+      tb.addEventListener('mousedown', function(e){ if(e.target.closest('button')) e.preventDefault(); });
+      tb.addEventListener('click', function(e){
+        var b=e.target.closest('button'); if(!b) return;
+        var ed=$(targetId); if(ed) ed.focus();
+        var media=b.getAttribute('data-media');
+        if(media){ inserisciMedia(media, targetId); return; }
+        var cmd=b.getAttribute('data-cmd'), val=b.getAttribute('data-val'); if(!cmd) return;
+        if(cmd==='createLink'){ var u=prompt('Indirizzo del link (https://…)'); if(u) document.execCommand('createLink',false,u); return; }
+        if(cmd==='formatBlock'){ document.execCommand('formatBlock',false, isInside('H4')?'p':(val||'h4')); return; }
+        document.execCommand(cmd,false,null);
+      });
+    }
+    Array.prototype.slice.call(document.querySelectorAll('.toolbar')).forEach(wireToolbar);
     function isInside(tag){ var n=window.getSelection().anchorNode; while(n){ if(n.nodeName===tag) return true; n=n.parentNode; } return false; }
     function setInterlinea(){ $('editorRich').style.lineHeight = $('interlinea').value; }
     function setFont(){ $('editorRich').style.fontFamily = $('font').value || ''; }
@@ -253,8 +278,8 @@
 
     /* ── NORMALIZZA: uniforma tutto il testo (toglie dimensioni/spaziature/font sporchi
        incollati da Google Docs, mantiene grassetto/corsivo/titoli/elenchi/media) ── */
-    function normalizza(){
-      var ed=$('editorRich');
+    function normalizza(editorId){
+      var ed=$(editorId||'editorRich');
       var tmp=document.createElement('div'); tmp.innerHTML=ed.innerHTML;
       // converte gli stili di formattazione in tag veri, poi rimuove span/font e tutti gli stili
       Array.prototype.slice.call(tmp.querySelectorAll('span,font,div,p,b,i,u,strong,em')).forEach(function(el){
@@ -278,9 +303,11 @@
       });
       function clear(el){ Array.prototype.slice.call(el.attributes).forEach(function(a){ el.removeAttribute(a.name); }); }
       ed.innerHTML=tmp.innerHTML;
-      // reset selettori e stile dell'editor
-      $('dimensione').value=''; $('font').value=''; $('interlinea').value='1.6';
-      ed.style.fontSize=SIZE_MAP['']; ed.style.fontFamily=''; ed.style.lineHeight='1.6';
+      // i selettori dimensione/font/interlinea valgono solo per l'editor principale
+      if(ed===$('editorRich')){
+        $('dimensione').value=''; $('font').value=''; $('interlinea').value='1.6';
+        ed.style.fontSize=SIZE_MAP['']; ed.style.fontFamily=''; ed.style.lineHeight='1.6';
+      }
       toast('Testo uniformato');
     }
 
@@ -292,13 +319,13 @@
       return url;
     }
     function escAttr(s){ return String(s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-    function inserisciMedia(tipo){
+    function inserisciMedia(tipo, editorId){
       var url=prompt(tipo==='video'
         ? 'Link del video (Google Drive o YouTube):'
         : "Link dell'immagine (Google Drive o URL diretto):");
       if(!url) return;
       url=url.trim(); if(!url) return;
-      $('editorRich').focus();
+      $(editorId||'editorRich').focus();
       var fig;
       if(tipo==='image'){
         fig='<figure class="cardmedia" data-type="image" contenteditable="false"><img src="'+escAttr(driveThumb(url))+'"></figure>';
@@ -357,16 +384,20 @@
     }
 
     function cambiaTipo(){
-      var t = $('tipo').value, isDC = (t==='completamento');
-      $('rich-wrap').style.display = isDC ? 'none' : 'block';
-      $('testoPlain').classList.toggle('on', isDC);
+      var t = $('tipo').value, isDC = (t==='completamento'), isCap = (t==='capitolo');
+      var plain = isDC || isCap;
+      $('rich-wrap').style.display = plain ? 'none' : 'block';
+      $('testoPlain').classList.toggle('on', plain);
       $('dc-help').classList.toggle('on', isDC);
       $('dc-preview-wrap').classList.toggle('on', isDC);
       $('g-quiz').classList.toggle('on', t==='quiz');
       $('g-feedback').classList.toggle('on', t==='quiz');
+      if(t==='quiz' && !$('opzioni-list').querySelector('.opt-row')) resetOpzioni();
       $('g-aperta').classList.toggle('on', t==='aperta');
-      var lbl={narrazione:'Testo della narrazione',quiz:'Domanda',aperta:'Consegna / domanda aperta',completamento:'Frase da completare'};
+      $('g-media').style.display = isCap ? 'none' : 'block';
+      var lbl={narrazione:'Testo della narrazione',quiz:'Domanda',aperta:'Consegna / domanda aperta',completamento:'Frase da completare',capitolo:'Titolo del capitolo'};
       $('lbl-testo').innerText=lbl[t];
+      $('testoPlain').placeholder = isCap ? 'Es: 1.1 — L\'alba dell\'IA' : 'Es: Il sole tramonta a [est / *ovest].';
       if(isDC) aggiornaPreview();
     }
 
@@ -392,18 +423,54 @@
 
     function toast(msg){ var t=$('toast'); t.innerText=msg; t.classList.add('show'); setTimeout(function(){t.classList.remove('show');},2200); }
 
+    /* HTML di un editor feedback (vuoto -> stringa vuota) */
+    function fbHtml(id){ var h=$(id).innerHTML.trim(); if(!h||h==='<br>'||h==='<p></p>'||h==='<p><br></p>') return ''; return h; }
+
+    /* ── OPZIONI come righe separate ── */
+    function addOpzione(text, correct){
+      var row=document.createElement('div'); row.className='opt-row';
+      row.innerHTML='<input type="radio" name="opt-correct" title="Risposta corretta">'+
+        '<input type="text" class="opt-input" placeholder="Testo dell\'opzione…">'+
+        '<button type="button" class="opt-del" title="Rimuovi opzione" onclick="this.parentNode.remove()">✕</button>';
+      if(text!=null) row.querySelector('.opt-input').value=text;
+      if(correct) row.querySelector('input[type=radio]').checked=true;
+      $('opzioni-list').appendChild(row);
+    }
+    function resetOpzioni(){ $('opzioni-list').innerHTML=''; addOpzione(); addOpzione(); }
+    function getOpzioniRaw(){
+      var lines=[];
+      Array.prototype.forEach.call($('opzioni-list').querySelectorAll('.opt-row'),function(r){
+        var t=r.querySelector('.opt-input').value.trim(); if(!t) return;
+        var corr=r.querySelector('input[type=radio]').checked;
+        lines.push((corr?'*':'')+t);
+      });
+      return lines.join('\n');
+    }
+    function caricaOpzioni(raw){
+      $('opzioni-list').innerHTML='';
+      var lines=String(raw||'').split('\n').map(function(s){return s.trim();}).filter(Boolean);
+      if(!lines.length){ addOpzione(); addOpzione(); return; }
+      lines.forEach(function(l){ var corr=l.charAt(0)==='*'; addOpzione(corr?l.substring(1).trim():l, corr); });
+    }
+
     function salva(){
       var tipo=$('tipo').value;
-      var testo=(tipo==='completamento')?$('testoPlain').value.trim():richHtml();
+      var testo=(tipo==='completamento'||tipo==='capitolo')?$('testoPlain').value.trim():richHtml();
       if(!testo){toast('Scrivi il testo della card');return;}
-      if(tipo==='quiz'&&!$('opzioni').value.trim()){toast('Aggiungi le opzioni');return;}
+      var opzioniRaw='';
+      if(tipo==='quiz'){
+        opzioniRaw=getOpzioniRaw();
+        var righe=opzioniRaw.split('\n').filter(Boolean);
+        if(righe.length<2){ toast('Inserisci almeno due opzioni'); return; }
+        if(!/(^|\n)\*/.test(opzioniRaw)){ toast('Spunta la risposta corretta'); return; }
+      }
       var payload={
         id:$('card-id').value||'', tipo:tipo, testo:testo,
         mediaUrl:$('mediaUrl').value.trim(),
         media:document.querySelector('input[name=media]:checked').value,
-        opzioniRaw:$('opzioni').value,
-        feedbackEsatto:tipo==='aperta'?$('msgAperta').value:$('fbEsatto').value,
-        feedbackErrato:$('fbErrato').value
+        opzioniRaw:opzioniRaw,
+        feedbackEsatto:tipo==='aperta'?$('msgAperta').value:fbHtml('fbEsatto'),
+        feedbackErrato:fbHtml('fbErrato')
       };
       $('btn-salva').disabled=true;
       google.script.run
@@ -421,7 +488,7 @@
 
     function pulisci(){
       $('card-id').value=''; loadRich(''); $('testoPlain').value='';
-      $('opzioni').value=''; $('fbEsatto').value=''; $('fbErrato').value=''; $('msgAperta').value='';
+      resetOpzioni(); $('fbEsatto').innerHTML=''; $('fbErrato').innerHTML=''; $('msgAperta').value='';
       $('mediaUrl').value='';
       document.querySelector('input[name=media][value=""]').checked=true;
       toggleMedia(); $('modo').innerText='';
@@ -432,11 +499,11 @@
       google.script.run.withSuccessHandler(function(c){
         if(!c) return;
         $('card-id').value=c.id; $('tipo').value=c.tipo; cambiaTipo();
-        if(c.tipo==='completamento'){$('testoPlain').value=c.testo;aggiornaPreview();}
+        if(c.tipo==='completamento'||c.tipo==='capitolo'){$('testoPlain').value=c.testo;if(c.tipo==='completamento')aggiornaPreview();}
         else{loadRich(c.testo);}
-        $('opzioni').value=c.opzioniRaw||'';
-        if(c.tipo==='aperta'){$('msgAperta').value=c.feedbackEsatto||'';}
-        else{$('fbEsatto').value=c.feedbackEsatto||'';$('fbErrato').value=c.feedbackErrato||'';}
+        caricaOpzioni(c.opzioniRaw||'');
+        if(c.tipo==='aperta'){$('msgAperta').value=c.feedbackEsatto||''; $('fbEsatto').innerHTML=''; $('fbErrato').innerHTML='';}
+        else{$('fbEsatto').innerHTML=c.feedbackEsatto||'';$('fbErrato').innerHTML=c.feedbackErrato||'';}
         document.querySelector('input[name=media][value="'+(c.media||'')+'"]').checked=true;
         toggleMedia(); $('mediaUrl').value=c.mediaUrl||'';
         $('modo').innerText='Stai modificando la card #'+c.id;
