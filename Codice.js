@@ -356,6 +356,47 @@ function salvaStudente(nome, email) {
   return 'OK';
 }
 
+/* Aggiorna l'avanzamento dello studente nella scheda Studenti (colonne D/E/F). */
+function salvaProgresso(nome, completate, totale) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('Studenti');
+  if (!sheet) {
+    sheet = ss.insertSheet('Studenti');
+    sheet.appendRow(['Timestamp', 'Nome', 'Email', 'Completate', 'Totale', 'Ultimo accesso']);
+    sheet.getRange(1, 1, 1, 6).setFontWeight('bold');
+  }
+  // assicura le intestazioni delle colonne di avanzamento sui fogli già esistenti
+  if (sheet.getRange(1, 4).getValue() !== 'Completate') {
+    sheet.getRange(1, 4, 1, 3).setValues([['Completate', 'Totale', 'Ultimo accesso']]).setFontWeight('bold');
+  }
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][1]).trim().toLowerCase() === String(nome).trim().toLowerCase()) {
+      sheet.getRange(i + 1, 4).setValue(completate);
+      sheet.getRange(i + 1, 5).setValue(totale);
+      sheet.getRange(i + 1, 6).setValue(new Date());
+      return 'OK';
+    }
+  }
+  sheet.appendRow([new Date(), nome, '', completate, totale, new Date()]);
+  return 'OK';
+}
+
+/* Mappa nome studente -> {done, tot} letta dalla scheda Studenti */
+function _progressi() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Studenti');
+  var m = {};
+  if (!sheet) return m;
+  var d = sheet.getDataRange().getValues();
+  for (var i = 1; i < d.length; i++) {
+    var nome = String(d[i][1] || '').trim();
+    if (!nome) continue;
+    var done = parseInt(d[i][3], 10), tot = parseInt(d[i][4], 10);
+    m[nome.toLowerCase()] = { nome: nome, done: isNaN(done) ? 0 : done, tot: isNaN(tot) ? 0 : tot };
+  }
+  return m;
+}
+
 /* Dati aggregati per la dashboard grafica */
 function getStatistiche() {
   var cards = getCardConfig();
@@ -396,16 +437,30 @@ function getStatistiche() {
     else if (r.esito === 'ERRATO') per[r.studente].ko++;
     else per[r.studente].ap++;
   });
-  var studenti = Object.keys(per).sort().map(function (s) {
-    var p = per[s], val = p.ok + p.ko;
-    return { nome: s, ok: p.ok, ko: p.ko, ap: p.ap, pct: val ? Math.round(p.ok / val * 100) : 0 };
+  var prog = _progressi();
+  // unione: studenti che hanno risposto + studenti che hanno solo avanzamento
+  var canon = {}; // lowercase -> nome visualizzato
+  Object.keys(per).forEach(function (s) { canon[s.toLowerCase()] = s; });
+  Object.keys(prog).forEach(function (lk) { if (!canon[lk]) canon[lk] = prog[lk].nome; });
+
+  var studenti = Object.keys(canon).sort(function (a, b) { return canon[a].localeCompare(canon[b]); }).map(function (lk) {
+    var nome = canon[lk];
+    var p = per[nome] || { ok: 0, ko: 0, ap: 0 };
+    var val = p.ok + p.ko;
+    var pr = prog[lk] || { done: 0, tot: 0 };
+    return {
+      nome: nome, ok: p.ok, ko: p.ko, ap: p.ap,
+      pct: val ? Math.round(p.ok / val * 100) : 0,
+      done: pr.done, tot: pr.tot,
+      pctAvanz: pr.tot ? Math.round(pr.done / pr.tot * 100) : 0
+    };
   });
 
   var totOk = 0, totVal = 0;
   studenti.forEach(function (s) { totOk += s.ok; totVal += s.ok + s.ko; });
 
   return {
-    studentiTotali: Object.keys(studentiSet).length,
+    studentiTotali: Object.keys(canon).length,
     risposteTotali: risp.length,
     pctGlobale: totVal ? Math.round(totOk / totVal * 100) : 0,
     titolo: getTitoloModulo(),

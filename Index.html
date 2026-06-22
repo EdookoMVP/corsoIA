@@ -415,7 +415,7 @@
       renderedUpTo=i;
     }
     if(currentIndex>=cards.length) showDone();
-    updateProgress();
+    updateProgress(); inviaProgresso();
   }
 
   function logout(){
@@ -440,6 +440,7 @@
 
   function renderSteps(){
     var nav=document.getElementById('steps'); nav.innerHTML='';
+    var n=0; // contatore dei passi reali (i capitoli non contano)
     cards.forEach(function(card,i){
       if(card.tipo==='capitolo'){
         var sec=document.createElement('div');
@@ -448,11 +449,12 @@
         nav.appendChild(sec);
         return;
       }
+      n++;
       var state=(i<currentIndex)?'done':(i===currentIndex?'active':'locked');
       var clickable=(i<=currentIndex&&i<cards.length);
       var el=document.createElement('div');
       el.className='step '+state+(clickable?' clickable':'');
-      el.innerHTML='<span class="marker">'+iconTipo(card.tipo)+'</span><span class="label">'+esc(card.titolo||('Passo '+(i+1)))+'</span>';
+      el.innerHTML='<span class="marker">'+iconTipo(card.tipo)+'</span><span class="label">'+esc(card.titolo||('Passo '+n))+'</span>';
       if(clickable){ el.onclick=(function(id){ return function(){ scrollToCard(id); }; })(card.id); }
       nav.appendChild(el);
     });
@@ -732,6 +734,13 @@
   }
 
   /* ══ AVANZAMENTO ══ */
+  function realStats(){
+    var tot=0, done=0;
+    for(var i=0;i<cards.length;i++){ if(isCapitolo(i)) continue; tot++; if(i<currentIndex) done++; }
+    return { done:done, tot:tot };
+  }
+  function inviaProgresso(){ var s=realStats(); gas('salvaProgresso', studentName, s.done, s.tot); }
+
   function avanza(){
     finalizeActive();
     currentIndex++;
@@ -742,7 +751,7 @@
       currentIndex++;
     }
     sSet('papiro_progress_'+studentKey,currentIndex);
-    renderSteps(); updateProgress();
+    renderSteps(); updateProgress(); inviaProgresso();
     if(currentIndex<cards.length){ appendCard(currentIndex,true); renderedUpTo=currentIndex; }
     else showDone();
   }
@@ -772,6 +781,7 @@
   }
 
   function showDone(){
+    inviaProgresso();
     var div=document.createElement('div'); div.className='done-screen enter';
     div.innerHTML='<div class="seal">'+checkSvg(22)+'</div><h3>Modulo completato!</h3>'+
       '<p>Ottimo lavoro. Vuoi ricevere per email un riepilogo dei contenuti e delle tue risposte?</p>'+
